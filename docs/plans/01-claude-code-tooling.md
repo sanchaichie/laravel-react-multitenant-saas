@@ -1,6 +1,7 @@
 # 01 — Claude Code tooling
 
-**Status:** WIP
+**Status:** Done
+**Commits:** `6670167` (claude)
 
 ## Goal
 Start the repo with saas-starter's Claude Code setup (skills, subagents, hooks, MCP, workflow rules), adapted to a React frontend, plus the roadmap of plans. No app code. `api/` and `web/` come in plans 02 and 03.
