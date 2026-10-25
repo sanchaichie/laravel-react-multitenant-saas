@@ -1,0 +1,8 @@
+# Claude Code: personal settings and Playwright MCP screenshots/output
+.claude/settings.local.json
+.playwright-mcp/
+
+node_modules/
+web/dist/
+web/dist-e2e/
+.DS_Store
