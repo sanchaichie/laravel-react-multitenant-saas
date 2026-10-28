@@ -3,7 +3,7 @@
 # Never uses :8100/:5173 (the developer's own servers) or saas-starter's :8000/:3000 and :8011/:3011.
 #
 # Usage: servers.sh start [--mail] | stop | status | cleanup [prefix] | errors
-#   start    build web into web/dist-e2e with the API URL baked in (skip with SKIP_BUILD=1), start API :8112 (4 workers,
+#   start    build web (if web/ exists) into web/dist-e2e with the API URL baked in (skip with SKIP_BUILD=1), start API :8112 (4 workers,
 #            for streaming) and `vite preview` on :5112, wait until both answer.
 #            Records where laravel.log ends, so errors and mail.sh only read this run.
 #            --mail: send emails straight away (sync queue) to the log, with links to :5112; read them with mail.sh
@@ -81,8 +81,12 @@ start() {
     fi
   done
 
-  use_node
-  if [ "${SKIP_BUILD:-0}" != 1 ]; then
+  # Before plan 03 there's no web/: start the API alone, as verify.sh skips that side.
+  local has_web=0
+  [ -f "$root/web/package.json" ] && has_web=1
+
+  [ "$has_web" = 1 ] && use_node
+  if [ "$has_web" = 1 ] && [ "${SKIP_BUILD:-0}" != 1 ]; then
     echo "building web..."
     # Vite bakes VITE_* into the bundle at build time, so the e2e build gets its own folder (npm run build keeps dist/).
     (cd "$root/web" && VITE_API_BASE="http://localhost:$API_PORT" npx vite build --outDir dist-e2e --emptyOutDir >"$state/build.log" 2>&1) \
@@ -94,12 +98,19 @@ start() {
   if [ -f "$log" ]; then wc -l <"$log" | tr -d ' ' >"$state/log.start"; else echo 0 >"$state/log.start"; fi
   (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
     ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
-  (cd "$root/web" && nohup npx vite preview --outDir dist-e2e --host 127.0.0.1 --port "$WEB_PORT" --strictPort \
-    >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
+  if [ "$has_web" = 1 ]; then
+    (cd "$root/web" && nohup npx vite preview --outDir dist-e2e --host 127.0.0.1 --port "$WEB_PORT" --strictPort \
+      >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
+  fi
 
-  wait_for "http://127.0.0.1:$API_PORT/up" && wait_for "http://127.0.0.1:$WEB_PORT/login" || { stop; exit 1; }
+  wait_for "http://127.0.0.1:$API_PORT/up" || { stop; exit 1; }
+  if [ "$has_web" = 1 ]; then wait_for "http://127.0.0.1:$WEB_PORT/login" || { stop; exit 1; }; fi
   echo "API  http://localhost:$API_PORT   (log: $state/api.log)"
-  echo "Web  http://localhost:$WEB_PORT   (log: $state/web.log)"
+  if [ "$has_web" = 1 ]; then
+    echo "Web  http://localhost:$WEB_PORT   (log: $state/web.log)"
+  else
+    echo "Web  skipped (no web/ yet)"
+  fi
   [ ${#mail_env[@]} -gt 0 ] && echo "Mail sent straight to $log (read with mail.sh)"
   return 0
 }
@@ -133,11 +144,13 @@ cleanup() {
     $prefix = getenv("E2E_PREFIX");
     $users = App\Models\User::where("email", "like", $prefix."%@example.com")->get();
     $ids = $users->pluck("id");
-    $orgIds = DB::table("organization_user")->whereIn("user_id", $ids)->pluck("organization_id")->unique();
-    $shared = DB::table("organization_user")->whereIn("organization_id", $orgIds)->whereNotIn("user_id", $ids)->pluck("organization_id");
+    // No organizations before plan 05.
+    $hasOrgs = Illuminate\Support\Facades\Schema::hasTable("organization_user");
+    $orgIds = $hasOrgs ? DB::table("organization_user")->whereIn("user_id", $ids)->pluck("organization_id")->unique() : collect();
+    $shared = $hasOrgs ? DB::table("organization_user")->whereIn("organization_id", $orgIds)->whereNotIn("user_id", $ids)->pluck("organization_id") : collect();
     $users->each(fn ($user) => $user->tokens()->delete());
     App\Models\User::whereIn("id", $ids)->delete();
-    $orgs = App\Models\Organization::whereIn("id", $orgIds->diff($shared))->delete();
+    $orgs = $hasOrgs ? App\Models\Organization::whereIn("id", $orgIds->diff($shared))->delete() : 0;
     echo "deleted {$ids->count()} {$prefix}* users and {$orgs} organizations\n";
   '
 }

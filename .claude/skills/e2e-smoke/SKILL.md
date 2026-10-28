@@ -15,6 +15,7 @@ Flow to check: $ARGUMENTS
 .claude/skills/e2e-smoke/servers.sh start --mail    # same, and emails are sent at once (sync queue) to the log, with links to :5112
 ```
 - Use `--mail` whenever the flow sends email (verification, password reset, invitations). It doesn't need the developer's `queue:work`, and doesn't touch `.env`. It runs **every** queued job inline (AI summaries, webhooks too), so retries and backoff aren't exercised, and a failing job shows as a 500 on the request.
+- Without `web/` (before plan 03), `start` runs the API alone and says so; check with curl only.
 - :8100 and :5173 are the developer's own `artisan serve` and `npm run dev`; :8000/:3000 and :8011/:3011 belong to saas-starter. Never stop or reuse those ports.
 - The servers use the dev database (`react_saas`), so every account you create must be `e2e-<something>@example.com`. Cleanup only deletes those.
 - Agents sharing the servers use their own prefix, so cleanup doesn't delete each other's accounts: `flow-tester` uses `e2e-ft-<name>@example.com`.
