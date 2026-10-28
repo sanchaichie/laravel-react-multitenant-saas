@@ -12,7 +12,7 @@ A rebuild of `../saas-starter` (Laravel + Nuxt) with a React frontend, made to l
 - Queue worker: `php artisan queue:work`
 - Web: `cd web && npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm test`
 - Always run `/verify` (or `php artisan test` and `npm run build`) before saying a task is done.
-- Never wipe a database. Dev and test share one Postgres, and `--env=testing` without an `.env.testing` uses `.env`. `.claude/hooks/block-destructive-db.sh` blocks `migrate:fresh`/`refresh`/`reset`/`rollback`, `db:wipe`, `dropdb` and `DROP`/`TRUNCATE` for Claude. Plan 02 also adds the `AppServiceProvider::guardDestructiveDatabaseCommands` guard from saas-starter. Pest rebuilds its own database.
+- Never wipe a database. Dev and test share one Postgres, and `--env=testing` without an `.env.testing` uses `.env`. `.claude/hooks/block-destructive-db.sh` blocks `migrate:fresh`/`refresh`/`reset`/`rollback`, `db:wipe`, `dropdb` and `DROP`/`TRUNCATE` for Claude. In the app, `AppServiceProvider::guardDestructiveDatabaseCommands` refuses them on any database whose name doesn't end in `_test` (override for one run: `DB_ALLOW_DESTRUCTIVE_COMMANDS=true`). Pest rebuilds its own database.
 
 ## Multi-organization model
 - Users belong to many organizations via the `organization_user` pivot. Roles are per organization (Owner, Admin, Member at first; custom roles and `App\Enums\Permission` from plan 08). Policies check permissions, never role names.
