@@ -11,7 +11,7 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | # | Plan | Status | saas-starter |
 |---|---|---|---|
 | 01 | [Claude Code tooling](01-claude-code-tooling.md) | Done | 06 |
-| 02 | API foundation (Laravel, Sanctum, Pest, CORS) | Not planned yet | 01 |
+| 02 | [API foundation (Laravel, Sanctum, Pest, CORS)](02-api-foundation.md) | Done | 01 |
 | 03 | React app with token auth (Vite, Router, Query, Zustand, shadcn, Vitest) | Not planned yet | 02 |
 | 04 | CI on GitHub Actions | Not planned yet | 28 |
 | 05 | Organizations, switcher and sidebar layout | Not planned yet | 03, 12, 21 |
