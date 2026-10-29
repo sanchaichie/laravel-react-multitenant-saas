@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\OrganizationRole;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
@@ -30,6 +32,39 @@ it('registers a user and returns a working token', function () {
         ->getJson('/api/me')
         ->assertOk()
         ->assertJsonPath('data.id', $user->id);
+});
+
+it('creates a personal organization the new user owns and works in', function () {
+    $response = $this->postJson('/api/register', registration())->assertCreated();
+
+    $user = User::sole();
+    $organization = Organization::sole();
+
+    expect($organization->name)->toBe('Ada Lovelace\'s organization')
+        ->and($user->current_organization_id)->toBe($organization->id)
+        ->and($organization->members()->sole()->membership->role)->toBe(OrganizationRole::Owner);
+
+    $response->assertJsonPath('user.current_organization.id', $organization->id)
+        ->assertJsonPath('user.current_organization.role', 'owner');
+});
+
+it('shortens the personal organization\'s name to fit, for the longest allowed name', function () {
+    $name = str_repeat('é', 255);
+
+    $this->postJson('/api/register', registration(['name' => $name]))->assertCreated();
+
+    $organization = Organization::sole();
+    expect(mb_strlen($organization->name))->toBe(255)
+        ->and($organization->name)->toEndWith('\'s organization')
+        ->and(User::sole()->name)->toBe($name);
+});
+
+it('creates no organization when registration fails', function () {
+    User::factory()->create(['email' => 'ada@example.com']);
+
+    $this->postJson('/api/register', registration())->assertUnprocessable();
+
+    expect(Organization::count())->toBe(0);
 });
 
 it('names the token after the device', function () {

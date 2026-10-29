@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\ConfigurationUrlParser;
@@ -16,7 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Scoped: fresh per request and per queued job.
+        $this->app->scoped(CurrentOrganization::class);
     }
 
     /**
