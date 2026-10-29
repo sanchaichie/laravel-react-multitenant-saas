@@ -14,7 +14,7 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 02 | [API foundation (Laravel, Sanctum, Pest, CORS)](02-api-foundation.md) | Done | 01 |
 | 03 | [React app with token auth (Vite, Router, Query, Zustand, shadcn, Vitest)](03-react-app-token-auth.md) | Done | 02 |
 | 04 | [CI on GitHub Actions](04-ci-github-actions.md) | Done | 28 |
-| 05 | Organizations, switcher and sidebar layout | Not planned yet | 03, 12, 21 |
+| 05 | [Organizations, switcher and sidebar layout](05-organizations-switcher-sidebar.md) | Done | 03, 12, 21 |
 | 06 | Members and invitations | Not planned yet | 04 |
 | 07 | Tasks (status, assignee, due date, priority, filters) | Not planned yet | 05, 07 |
 | 08 | Custom roles and permissions | Not planned yet | 10 |
