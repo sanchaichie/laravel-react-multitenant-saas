@@ -1,0 +1,76 @@
+import { ChevronsUpDownIcon, CircleUserIcon, LogOutIcon, PaletteIcon } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import { useLogout } from '@/features/auth/api'
+import { useAuth } from '@/stores/auth'
+
+/** The bottom of the sidebar: who's logged in, appearance, log out. */
+export function UserMenu() {
+  const user = useAuth((s) => s.user)
+  const logout = useLogout()
+  const { isMobile } = useSidebar()
+  // next-themes: a context (ThemeProvider in AppProviders) that stores the choice
+  // in localStorage and puts the `dark` class on <html>.
+  const { theme, setTheme } = useTheme()
+
+  if (!user) {
+    return null
+  }
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg" tooltip={user.name} aria-label={`Account: ${user.name}`}>
+              <CircleUserIcon className="size-5!" aria-hidden />
+              <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+              </div>
+              <ChevronsUpDownIcon className="ml-auto" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="min-w-56" side={isMobile ? 'top' : 'right'} align="end" sideOffset={4}>
+            <DropdownMenuLabel className="grid font-normal">
+              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <PaletteIcon />
+                Appearance
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                  <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => logout.mutate()} disabled={logout.isPending}>
+              <LogOutIcon />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}

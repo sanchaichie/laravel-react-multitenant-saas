@@ -1,5 +1,7 @@
+import { toast } from 'sonner'
+import { queryClient } from '@/lib/queryClient'
 import { useAuth } from '@/stores/auth'
-import type { ApiErrorBody } from '@/types/api'
+import type { ApiErrorBody, User } from '@/types/api'
 
 // Baked in at build time (Vite), so it's public: never put a secret in VITE_*.
 const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:8100').replace(/\/$/, '')
@@ -32,6 +34,8 @@ interface ApiFetchOptions {
   signal?: AbortSignal
   /** false: a 401 is left to the caller (logout ends the session itself). */
   endSessionOn401?: boolean
+  /** A token other than the session's: only for login, before the session is stored. */
+  token?: string
 }
 
 /**
@@ -42,18 +46,26 @@ interface ApiFetchOptions {
  *
  * A 401 for the current token ends the session. It doesn't navigate: RequireAuth
  * re-renders when the token goes and sends the user to /login.
+ *
+ * It also sends X-Organization-Id, the organization this tab thinks is current.
+ * The server never uses it to choose one; org-scoped routes answer 409
+ * `organization_changed` when another tab switched, and this tab then catches up.
  */
 export async function apiFetch<T>(
   path: string,
-  { method = 'GET', body, signal, endSessionOn401 = true }: ApiFetchOptions = {},
+  { method = 'GET', body, signal, endSessionOn401 = true, token: explicitToken }: ApiFetchOptions = {},
 ): Promise<T> {
-  const token = useAuth.getState().token
+  const token = explicitToken ?? useAuth.getState().token
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
   }
   if (token) {
     headers.Authorization = `Bearer ${token}`
+  }
+  const organizationId = explicitToken ? undefined : useAuth.getState().user?.current_organization?.id
+  if (organizationId !== undefined) {
+    headers['X-Organization-Id'] = String(organizationId)
   }
 
   let response: Response
@@ -80,6 +92,9 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const data = (await response.json().catch(() => null)) as ApiErrorBody | null
+    if (response.status === 409 && data?.code === 'organization_changed') {
+      void catchUpWithOrganization()
+    }
     throw new ApiError(response.status, data)
   }
 
@@ -88,4 +103,33 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T
+}
+
+let catchingUp: Promise<void> | null = null
+
+/**
+ * Another tab switched organization: load the user (and so the current
+ * organization) again, and drop this tab's org-scoped data, which belongs to the
+ * old one. Once at a time, however many requests got the 409.
+ */
+function catchUpWithOrganization(): Promise<void> {
+  catchingUp ??= (async () => {
+    try {
+      const { data } = await apiFetch<{ data: User }>('/api/me')
+      useAuth.getState().setUser(data)
+      queryClient.removeQueries({ queryKey: ['org'] })
+      void queryClient.invalidateQueries({ queryKey: ['organizations'] })
+      toast.info('Your organization changed', {
+        description: data.current_organization
+          ? `You're now working in ${data.current_organization.name} (switched in another tab).`
+          : 'It was changed in another tab.',
+      })
+    } catch {
+      // A 401 already ended the session; anything else, the next request tries again.
+    } finally {
+      catchingUp = null
+    }
+  })()
+
+  return catchingUp
 }

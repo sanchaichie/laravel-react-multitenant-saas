@@ -1,7 +1,8 @@
+import { waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { queryClient } from '@/lib/queryClient'
 import { useAuth } from '@/stores/auth'
-import { ada, jsonResponse, logIn, mockApi } from '@/test/utils'
+import { acme, ada, beta, jsonResponse, logIn, mockApi } from '@/test/utils'
 import { ApiError, apiFetch, NetworkError } from './api'
 
 describe('apiFetch', () => {
@@ -17,8 +18,34 @@ describe('apiFetch', () => {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       Authorization: 'Bearer 1|abc',
+      'X-Organization-Id': String(acme.id),
     })
     expect(init?.body).toBe('{"a":1}')
+  })
+
+  it('says which organization this tab thinks is current (X-Organization-Id)', async () => {
+    logIn()
+    const fetchMock = mockApi({ 'GET /api/things': () => jsonResponse([]) })
+
+    await apiFetch('/api/things')
+
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ 'X-Organization-Id': String(acme.id) })
+  })
+
+  it('catches up when another tab switched organization (409 organization_changed)', async () => {
+    logIn()
+    queryClient.setQueryData(['org', acme.id, 'tasks'], ['Acme task'])
+    const fetchMock = mockApi({
+      'GET /api/org-thing': () =>
+        jsonResponse({ message: 'Your current organization changed.', code: 'organization_changed' }, 409),
+      'GET /api/me': () => jsonResponse({ data: { ...ada, current_organization: beta } }),
+    })
+
+    await expect(apiFetch('/api/org-thing')).rejects.toMatchObject({ status: 409 })
+
+    await waitFor(() => expect(useAuth.getState().user?.current_organization).toEqual(beta))
+    expect(queryClient.getQueryData(['org', acme.id, 'tasks'])).toBeUndefined()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/api/me'))).toHaveLength(1)
   })
 
   it('sends no token or Content-Type when there is none', async () => {

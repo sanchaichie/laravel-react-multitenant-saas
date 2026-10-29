@@ -9,7 +9,7 @@ A multi-organization SaaS starter with a Laravel API and a React app, being rebu
 - **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
 
 ## Status
-You can register, log in, see your account and log out, in the React app against the API's token auth. Organizations come next. The roadmap is in [docs/plans](docs/plans/README.md).
+You can register (which creates your own organization), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. The current organization is kept on the server, and every organization's data is walled off from the others. Members and invitations come next. The roadmap is in [docs/plans](docs/plans/README.md).
 
 ## Requirements
 PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
@@ -64,7 +64,10 @@ The API answers on `http://localhost:8100/api`:
 | `POST /api/register` | Create an account (`name`, `email`, `password`, `password_confirmation`); returns `{user, token}` |
 | `POST /api/login` | `email`, `password`; returns `{user, token}` |
 | `POST /api/logout` | Revokes the token it's called with |
-| `GET /api/me` | The current user |
+| `GET /api/me` | The current user, with `current_organization` (and your role in it) |
+| `GET /api/organizations` | Your organizations with your role, and `meta.current_organization_id` |
+| `POST /api/organizations` | Create one (`name`); you're its owner and it becomes current. 20 a minute |
+| `POST /api/organizations/{id}/switch` | Make one of yours current (404 if you're not a member) |
 
 Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email.
 
@@ -83,8 +86,10 @@ GitHub Actions runs all of these on every push to `main` and every pull request 
 |---|---|
 | ![Log in](docs/screenshots/login.png) | ![Register with field errors](docs/screenshots/register-errors.png) |
 | **Log in** | **Register**, with errors from the form and the API on their fields |
-| ![Home](docs/screenshots/home.png) | |
-| **Home**, logged in | |
+| ![Home](docs/screenshots/home.png) | ![Organization switcher](docs/screenshots/organization-switcher.png) |
+| **Dashboard**, with the sidebar: current organization and your role | **Organization switcher**: your organizations, and create one |
+| ![Choose an organization](docs/screenshots/select-organization.png) | |
+| **Choose an organization**, after logging in when you're in several | |
 
 ## Working with Claude Code
 The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.

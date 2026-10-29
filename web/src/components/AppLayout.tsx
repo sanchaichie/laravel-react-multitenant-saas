@@ -1,34 +1,32 @@
-import { LogOutIcon } from 'lucide-react'
-import { Link, Outlet } from 'react-router'
-import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { useLogout } from '@/features/auth/api'
-import { useAuth } from '@/stores/auth'
+import { Outlet } from 'react-router'
+import { AppSidebar } from '@/components/AppSidebar'
+import { Separator } from '@/components/ui/separator'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 
-/** Layout route for the logged-in pages: a top bar, then the page. The sidebar comes with organizations. */
+/**
+ * Layout route for the logged-in pages: the sidebar, then the page. SidebarProvider
+ * is a context: every sidebar part below it (and useSidebar()) shares its state.
+ */
 export function AppLayout() {
-  const user = useAuth((s) => s.user)
-  const logout = useLogout()
-
   return (
-    <div className="min-h-svh bg-background">
-      <header className="border-b">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-          <Link to="/" className="font-semibold">
-            React SaaS
-          </Link>
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="truncate text-sm text-muted-foreground">{user?.name}</span>
-            <Button variant="outline" size="sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
-              {logout.isPending ? <Spinner /> : <LogOutIcon />}
-              Log out
-            </Button>
-          </div>
+    <SidebarProvider defaultOpen={readSidebarOpen()}>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+          <span className="font-semibold">React SaaS</span>
+        </header>
+        <div className="mx-auto w-full max-w-5xl p-4 md:p-8">
+          <Outlet />
         </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <Outlet />
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
+}
+
+// SidebarProvider writes its open/collapsed state to a cookie, but only reads it
+// on a server (Next.js). Read it here so the choice survives a reload.
+function readSidebarOpen(): boolean {
+  return !document.cookie.split('; ').includes('sidebar_state=false')
 }

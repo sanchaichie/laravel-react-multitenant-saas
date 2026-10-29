@@ -1,21 +1,37 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { organizationsQuery } from '@/features/organizations/api'
 import { ApiError, apiFetch } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { useAuth } from '@/stores/auth'
-import type { AuthResponse, LoginPayload, RegisterPayload } from '@/types/api'
+import type { AuthResponse, LoginPayload, OrganizationList, RegisterPayload } from '@/types/api'
 
 // Mutations, not queries: these change the session rather than read data. On
 // success they store it, and RequireGuest (which reads the store) sends the user on.
 
 export function useLogin() {
   const setSession = useAuth((s) => s.setSession)
+  const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (payload: LoginPayload) =>
-      apiFetch<AuthResponse>('/api/login', { method: 'POST', body: payload }),
-    onSuccess: ({ token, user }) => setSession(token, user),
+    // Load the organizations with the new token before storing the session, so the
+    // guard knows at once whether to ask which one (more than one). If that call
+    // fails, log in anyway and skip the question.
+    mutationFn: async (payload: LoginPayload) => {
+      const session = await apiFetch<AuthResponse>('/api/login', { method: 'POST', body: payload })
+      const organizations = await apiFetch<OrganizationList>('/api/organizations', { token: session.token }).catch(
+        () => null,
+      )
+
+      return { ...session, organizations }
+    },
+    onSuccess: ({ token, user, organizations }) => {
+      if (organizations) {
+        queryClient.setQueryData(organizationsQuery.queryKey, organizations)
+      }
+      setSession(token, user, { chooseOrganization: (organizations?.data.length ?? 0) > 1 })
+    },
   })
 }
 

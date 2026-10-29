@@ -9,8 +9,8 @@
   },
   "overrides": [
     {
-      "files": ["src/components/ui/**"],
-      "rules": { "react/only-export-components": "off" }
+      "files": ["src/components/ui/**", "src/hooks/use-mobile.ts"],
+      "rules": { "react/only-export-components": "off", "react/set-state-in-effect": "off" }
     }
   ],
   "ignorePatterns": ["dist", "dist-e2e"]

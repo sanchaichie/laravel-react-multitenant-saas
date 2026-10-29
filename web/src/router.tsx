@@ -8,6 +8,7 @@ import { LoginPage } from '@/routes/LoginPage'
 import { NotFoundPage } from '@/routes/NotFoundPage'
 import { RegisterPage } from '@/routes/RegisterPage'
 import { RouteErrorPage } from '@/routes/RouteErrorPage'
+import { SelectOrganizationPage } from '@/routes/SelectOrganizationPage'
 
 // Routes without a `path` are layout routes: they render around their children
 // (through <Outlet>) without adding to the URL. That's how guards and layouts nest.
@@ -33,6 +34,11 @@ export const routes: RouteObject[] = [
           {
             element: <AppLayout />,
             children: [{ index: true, element: <HomePage /> }],
+          },
+          // Logged in, but in the card layout of the auth pages.
+          {
+            element: <AuthLayout />,
+            children: [{ path: 'select-organization', element: <SelectOrganizationPage /> }],
           },
         ],
       },

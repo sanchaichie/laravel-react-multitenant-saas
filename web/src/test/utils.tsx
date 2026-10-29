@@ -1,20 +1,27 @@
-import { QueryClientProvider } from '@tanstack/react-query'
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
-import { Toaster } from 'sonner'
 import { vi } from 'vitest'
-import { queryClient } from '@/lib/queryClient'
+import { AppProviders } from '@/components/AppProviders'
 import { routes } from '@/router'
 import { useAuth } from '@/stores/auth'
-import type { User } from '@/types/api'
+import type { Organization, OrganizationList, User } from '@/types/api'
+
+export const acme: Organization = { id: 10, name: 'Acme', role: 'owner', created_at: '2026-10-01T12:00:00.000000Z' }
+export const beta: Organization = { id: 20, name: 'Beta', role: 'member', created_at: '2026-10-02T12:00:00.000000Z' }
 
 export const ada: User = {
   id: 1,
   name: 'Ada Lovelace',
   email: 'ada@example.com',
+  current_organization: acme,
   created_at: '2026-10-01T12:00:00.000000Z',
+}
+
+/** GET /api/organizations as the API answers it. */
+export function organizationList(organizations: Organization[], currentId: number | null = organizations[0]?.id ?? null): OrganizationList {
+  return { data: organizations, meta: { current_organization_id: currentId } }
 }
 
 /** Logged in as `user`, as if bootstrapSession had run. */
@@ -26,10 +33,9 @@ export function logIn(user: User = ada, token = '1|test-token') {
 export function renderApp(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   render(
-    <QueryClientProvider client={queryClient}>
+    <AppProviders>
       <RouterProvider router={router} />
-      <Toaster />
-    </QueryClientProvider>,
+    </AppProviders>,
   )
 
   return { router, user: userEvent.setup() }
@@ -68,4 +74,10 @@ export function mockApi(handlers: Record<string, Handler>) {
 /** The JSON body a mocked request was sent with. */
 export function sentBody(init: RequestInit): unknown {
   return JSON.parse(String(init.body))
+}
+
+/** Open the account menu in the sidebar and choose Log out. */
+export async function logOutFromMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /^Account:/ }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Log out' }))
 }

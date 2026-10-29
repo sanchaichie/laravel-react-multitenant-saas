@@ -1,13 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClientProvider } from '@tanstack/react-query'
 // The DOM build: it can apply a navigation with ReactDOM.flushSync (see useLogout).
 import { RouterProvider } from 'react-router/dom'
+import { AppProviders } from '@/components/AppProviders'
 import { FullPageSpinner } from '@/components/FullPageSpinner'
-import { Toaster } from '@/components/ui/sonner'
 import { bootstrapSession } from '@/features/auth/session'
 import { ApiError } from '@/lib/api'
-import { queryClient } from '@/lib/queryClient'
 import { router } from '@/router'
 import './index.css'
 
@@ -31,9 +29,8 @@ try {
 // effects in the render body (they belong in event handlers or effects).
 root.render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <AppProviders>
       <RouterProvider router={router} />
-      <Toaster theme="light" richColors closeButton />
-    </QueryClientProvider>
+    </AppProviders>
   </StrictMode>,
 )

@@ -1,8 +1,8 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { bootstrapSession } from '@/features/auth/session'
 import { useAuth } from '@/stores/auth'
-import { ada, jsonResponse, logIn, mockApi, renderApp } from '@/test/utils'
+import { ada, jsonResponse, logIn, logOutFromMenu, mockApi, renderApp } from '@/test/utils'
 
 describe('RequireAuth', () => {
   it('sends a logged-out visitor to log in, remembering where they were', async () => {
@@ -17,8 +17,10 @@ describe('RequireAuth', () => {
     renderApp('/')
 
     expect(await screen.findByRole('heading', { name: 'Welcome, Ada Lovelace' })).toBeInTheDocument()
-    expect(screen.getByText('ada@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Oct 1, 2026')).toBeInTheDocument()
+    const page = within(screen.getByRole('main'))
+    expect(page.getByText('ada@example.com')).toBeInTheDocument()
+    expect(page.getByText('Oct 1, 2026')).toBeInTheDocument()
+    expect(page.getByText('Owner')).toBeInTheDocument()
   })
 
   it('offers a retry when there is a token but the API was down at startup', async () => {
@@ -90,12 +92,12 @@ describe('log out', () => {
     const fetchMock = mockApi({ 'POST /api/logout': () => jsonResponse(null, 204) })
     const { router, user } = renderApp('/')
 
-    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+    await logOutFromMenu(user)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
     expect(router.state.location.search).toBe('')
     expect(useAuth.getState()).toMatchObject({ token: null, user: null })
-    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/api/logout'))).toHaveLength(1)
   })
 
   it('logs out locally even if the token was already revoked', async () => {
@@ -103,7 +105,7 @@ describe('log out', () => {
     mockApi({ 'POST /api/logout': () => jsonResponse({ message: 'Unauthenticated.' }, 401) })
     const { router, user } = renderApp('/')
 
-    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+    await logOutFromMenu(user)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
     expect(router.state.location.search).toBe('')
@@ -120,7 +122,7 @@ describe('log out', () => {
     })
     const { router, user } = renderApp('/')
 
-    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+    await logOutFromMenu(user)
 
     expect(await screen.findByText('Logged out on this device')).toBeInTheDocument()
     expect(router.state.location.pathname + router.state.location.search).toBe('/login')
