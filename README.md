@@ -7,10 +7,10 @@ A multi-organization SaaS starter with a Laravel API and a React app, being rebu
 - **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
 
 ## Status
-The API has token auth (register, log in, log out, current user). The React app arrives with plan 03. The roadmap is in [docs/plans](docs/plans/README.md).
+You can register, log in, see your account and log out, in the React app against the API's token auth. Organizations come next. The roadmap is in [docs/plans](docs/plans/README.md).
 
 ## Requirements
-PHP 8.4+, Composer, PostgreSQL. (Node 22 from plan 03.)
+PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
 
 ## Setup
 
@@ -40,10 +40,21 @@ Key settings in `api/.env`:
 
 The rest is explained by comments in `api/.env.example`.
 
+### 3. Web
+```bash
+cd web
+npm install
+cp .env.example .env        # VITE_API_BASE, if the API isn't on http://localhost:8100
+```
+
 ## Run
+In two terminals:
 ```bash
 cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --port=8100 --no-reload
+cd web && npm run dev
 ```
+Open http://localhost:5173 and create an account. Vite must stay on :5173, the only origin the API's CORS allows (`FRONTEND_URL`).
+
 The API answers on `http://localhost:8100/api`:
 
 | Endpoint | What it does |
@@ -53,13 +64,22 @@ The API answers on `http://localhost:8100/api`:
 | `POST /api/logout` | Revokes the token it's called with |
 | `GET /api/me` | The current user |
 
-Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register and login allow 6 attempts a minute each.
+Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email.
 
 ## Tests
 ```bash
-cd api && php artisan test
+cd api && php artisan test     # Pest, on react_saas_test (rebuilt on every run)
+cd web && npm test             # Vitest + Testing Library, API calls mocked
 ```
-Pest runs on `react_saas_test` and rebuilds it on every run.
+`npm run lint`, `npm run typecheck` and `npm run build` check the rest of the web app.
+
+## Screenshots
+| | |
+|---|---|
+| ![Log in](docs/screenshots/login.png) | ![Register with field errors](docs/screenshots/register-errors.png) |
+| **Log in** | **Register**, with errors from the form and the API on their fields |
+| ![Home](docs/screenshots/home.png) | |
+| **Home**, logged in | |
 
 ## Working with Claude Code
 The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.

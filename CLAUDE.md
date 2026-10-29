@@ -42,7 +42,10 @@ A rebuild of `../saas-starter` (Laravel + Nuxt) with a React frontend, made to l
 - Query keys for org-scoped data start with `['org', currentOrganizationId, ...]`; switching organization removes them. Mutations invalidate what they change.
 - Server data lives in TanStack Query. Zustand holds only client state: the auth store (token, current user) and the current organization. Select slices (`useAuth(s => s.user)`), not the whole store.
 - The token is kept in `localStorage` (no SSR, so no httpOnly cookie without a proxy). That makes XSS a token theft: no `dangerouslySetInnerHTML` on user content, and nothing secret in `VITE_*` (it ships to the browser).
-- Route guards are components (`RequireAuth`, `RequireGuest`) around route groups, in place of Nuxt middleware. `?redirect=` goes through `safeRedirect`.
+- React Router in data mode: routes are declared in `router.tsx` (`createBrowserRouter`); layouts and guards are pathless layout routes with `<Outlet>`. Data comes from TanStack Query, not route loaders. Import `RouterProvider` from `react-router/dom` (it supports `flushSync`).
+- Route guards are components (`RequireAuth`, `RequireGuest`) around route groups, in place of Nuxt middleware. `?redirect=` goes through `safeRedirect`. They redirect by reacting to the auth store, so code outside React (like `apiFetch` on a 401) only clears the session and never navigates.
+- `bootstrapSession()` loads `/api/me` once in `main.tsx` before the first render; only the token is persisted (`localStorage` key `auth`).
+- Tests: Vitest + Testing Library (jsdom). `src/test/utils.tsx` has `renderApp(path)` (the real routes in a memory router), `mockApi({ 'POST /api/login': ... })` (fails on any unmocked request) and `logIn()`. Lint is oxlint (`.oxlintrc.json`: rules of hooks, exhaustive deps, no `any`).
 - Forms use react-hook-form with a zod schema; 422 errors are mapped onto fields.
 - Use shadcn/ui components before writing custom ones. Check the shadcn MCP before guessing a component's API.
 - Every page has loading, empty and error states. Dates render with a fixed locale and time zone.
