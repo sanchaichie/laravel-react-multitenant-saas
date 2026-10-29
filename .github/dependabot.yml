@@ -1,0 +1,10 @@
+# Keeps the actions in .github/workflows current. Composer and npm updates stay manual.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Wait a week before proposing a new release, in case it's pulled as malicious.
+    cooldown:
+      default-days: 7

@@ -1,5 +1,7 @@
 # react-saas
 
+[![CI](https://github.com/dtrinidad-iv/react-saas/actions/workflows/ci.yml/badge.svg)](https://github.com/dtrinidad-iv/react-saas/actions/workflows/ci.yml)
+
 A multi-organization SaaS starter with a Laravel API and a React app, being rebuilt from [saas-starter](../saas-starter) (Laravel + Nuxt) one feature at a time, as a way to learn React. Tasks take the place of Projects.
 
 ## Stack
@@ -69,9 +71,12 @@ Send the token as `Authorization: Bearer <token>`, with `Accept: application/jso
 ## Tests
 ```bash
 cd api && php artisan test     # Pest, on react_saas_test (rebuilt on every run)
+cd api && vendor/bin/pint --test   # PHP code style (vendor/bin/pint to fix)
 cd web && npm test             # Vitest + Testing Library, API calls mocked
 ```
 `npm run lint`, `npm run typecheck` and `npm run build` check the rest of the web app.
+
+GitHub Actions runs all of these on every push to `main` and every pull request (`.github/workflows/ci.yml`). To stop a red run from being merged, require the `API (Pint, Pest)` and `Web (lint, typecheck, test, build)` checks under Settings → Branches → branch protection for `main`.
 
 ## Screenshots
 | | |
