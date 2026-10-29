@@ -1,6 +1,7 @@
 # 04 — CI on GitHub Actions
 
-**Status:** WIP
+**Status:** Done
+**Commits:** `6ff9625` (ci, squash of PR #1)
 
 ## Goal
 Run the same checks as `/verify` on GitHub for every push to `main` and every pull request: Pint and Pest for `api/`, plus oxlint, typecheck, Vitest and build for `web/`. A broken commit then shows up even when nobody ran `verify.sh` locally. It rebuilds saas-starter plan 28, with Vitest added.
