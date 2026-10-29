@@ -16,7 +16,7 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 04 | [CI on GitHub Actions](04-ci-github-actions.md) | Done | 28 |
 | 05 | [Organizations, switcher and sidebar layout](05-organizations-switcher-sidebar.md) | Done | 03, 12, 21 |
 | 06 | [Members and invitations](06-members-invitations.md) | Done | 04, 22 |
-| 07 | Tasks (status, assignee, due date, priority, filters) | Not planned yet | 05, 07 |
+| 07 | [Tasks (status, assignee, due date, priority, filters)](07-tasks.md) | Done | 05, 07 |
 | 08 | Custom roles and permissions | Not planned yet | 10 |
 | 09 | Audit trail | Not planned yet | 11 |
 | 10 | AI layer and task summaries | Not planned yet | 09, 14 |
