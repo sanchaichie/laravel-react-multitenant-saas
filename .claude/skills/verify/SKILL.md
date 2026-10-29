@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Run every check before saying a task is done - Pint, Pest (php artisan test), ESLint, tsc typecheck, Vitest and npm run build, with the right PHP 8.4 and Node versions. Use before reporting any api/ or web/ change as finished, and before committing.
+description: Run every check before saying a task is done - Pint, Pest (php artisan test), oxlint, tsc typecheck, Vitest and npm run build, with the right PHP 8.4 and Node versions. Use before reporting any api/ or web/ change as finished, and before committing.
 argument-hint: "[api|web|all]"
 allowed-tools: Bash(.claude/skills/verify/verify.sh *), Bash(.claude/skills/verify/verify.sh)
 ---
