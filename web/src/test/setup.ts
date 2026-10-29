@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
+import { toast } from 'sonner'
 import { afterEach, vi } from 'vitest'
 import { queryClient } from '@/lib/queryClient'
 import { useAuth } from '@/stores/auth'
@@ -35,6 +36,8 @@ Element.prototype.scrollIntoView ??= () => {}
 // theme and an expanded sidebar.
 afterEach(() => {
   cleanup()
+  // sonner keeps its toasts in module state: a toast must not carry over to the next test.
+  toast.dismiss()
   useAuth.setState({ token: null, user: null, chooseOrganization: false })
   localStorage.clear()
   document.documentElement.className = ''

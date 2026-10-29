@@ -2,6 +2,7 @@ import { Outlet } from 'react-router'
 import { AppSidebar } from '@/components/AppSidebar'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { VerifyEmailBanner } from '@/features/auth/VerifyEmailBanner'
 
 /**
  * Layout route for the logged-in pages: the sidebar, then the page. SidebarProvider
@@ -18,6 +19,7 @@ export function AppLayout() {
           <span className="font-semibold">React SaaS</span>
         </header>
         <div className="mx-auto w-full max-w-5xl p-4 md:p-8">
+          <VerifyEmailBanner />
           <Outlet />
         </div>
       </SidebarInset>

@@ -25,3 +25,14 @@ export async function bootstrapSession(): Promise<void> {
     useAuth.getState().setUser(data)
   }
 }
+
+/**
+ * Load the user again after something on the server changed them: leaving or
+ * joining an organization (the current one moves), verifying the email.
+ */
+export async function reloadUser(): Promise<User> {
+  const { data } = await apiFetch<{ data: User }>('/api/me')
+  useAuth.getState().setUser(data)
+
+  return data
+}

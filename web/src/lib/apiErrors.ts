@@ -33,6 +33,9 @@ export function errorMessage(error: unknown): string {
   if (error instanceof NetworkError) {
     return 'Cannot reach the server. Is the API running?'
   }
+  if (isEmailUnverified(error)) {
+    return 'Verify your email address first: use the link we emailed you, or send a new one from the banner at the top.'
+  }
   if (error instanceof ApiError) {
     if (error.status === 429) {
       return 'Too many attempts. Wait a minute and try again.'
@@ -44,4 +47,9 @@ export function errorMessage(error: unknown): string {
   }
 
   return 'Something went wrong. Please try again.'
+}
+
+/** The API refused because the user hasn't verified their email (the `verified` middleware). */
+export function isEmailUnverified(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403 && error.data?.code === 'email_unverified'
 }

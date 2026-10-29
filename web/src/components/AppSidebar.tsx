@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { LayoutDashboardIcon } from 'lucide-react'
+import { LayoutDashboardIcon, UsersIcon } from 'lucide-react'
 import { NavLink, useMatch } from 'react-router'
 import {
   Sidebar,
@@ -24,8 +24,11 @@ interface NavItem {
   icon: ComponentType<{ 'aria-hidden'?: boolean }>
 }
 
-// Members (plan 06) and Tasks (plan 07) join this list.
-const navigation: NavItem[] = [{ to: '/', label: 'Dashboard', icon: LayoutDashboardIcon }]
+// Tasks (plan 07) joins this list.
+const navigation: NavItem[] = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboardIcon },
+  { to: '/members', label: 'Members', icon: UsersIcon },
+]
 
 export function AppSidebar() {
   return (

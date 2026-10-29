@@ -8,13 +8,20 @@ import { routes } from '@/router'
 import { useAuth } from '@/stores/auth'
 import type { Organization, OrganizationList, User } from '@/types/api'
 
-export const acme: Organization = { id: 10, name: 'Acme', role: 'owner', created_at: '2026-10-01T12:00:00.000000Z' }
-export const beta: Organization = { id: 20, name: 'Beta', role: 'member', created_at: '2026-10-02T12:00:00.000000Z' }
+export const acme: Organization = {
+  id: 10,
+  name: 'Acme',
+  role: 'owner',
+  permissions: ['members.invite', 'members.manage', 'organization.manage'],
+  created_at: '2026-10-01T12:00:00.000000Z',
+}
+export const beta: Organization = { id: 20, name: 'Beta', role: 'member', permissions: [], created_at: '2026-10-02T12:00:00.000000Z' }
 
 export const ada: User = {
   id: 1,
   name: 'Ada Lovelace',
   email: 'ada@example.com',
+  email_verified: true,
   current_organization: acme,
   created_at: '2026-10-01T12:00:00.000000Z',
 }

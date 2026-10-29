@@ -5,7 +5,7 @@ import { useAuth } from '@/stores/auth'
 import { acme, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
 import type { Organization } from '@/types/api'
 
-const gamma: Organization = { id: 30, name: 'Gamma', role: 'owner', created_at: '2026-10-29T12:00:00.000000Z' }
+const gamma: Organization = { ...acme, id: 30, name: 'Gamma', created_at: '2026-10-29T12:00:00.000000Z' }
 
 async function openCreateDialog(user: ReturnType<typeof renderApp>['user']) {
   await user.click(await screen.findByRole('button', { name: 'Organization: Acme' }))
