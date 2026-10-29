@@ -29,7 +29,8 @@ Tasks is the reference implementation (built in plan 07; before then, follow saa
 6. **Resource.** Reference: `app/Http/Resources/TaskResource.php`. Include `can: {update, delete}` from the policy so the frontend never duplicates the rules. Load relations with `whenLoaded`.
 7. **Controller.** Reference: `app/Http/Controllers/Api/TaskController.php`. Keep it thin: `Gate::authorize`, call the action, return the resource. For lists, eager load (`with`), paginate (`paginate(20)->withQueryString()`), and escape `%` and `_` in search.
 8. **Route.** Put it in `routes/api.php` inside the `Route::middleware('organization')` group: `Route::apiResource('<things>', ...)->whereNumber('<thing>')`.
-9. **Queued jobs and listeners.** Models come back without global scopes, but any *other* scoped query inside the job returns nothing until you call `app(CurrentOrganization::class)->set($organization)`.
+9. **Queued jobs and listeners.** Models come back without global scopes, but any *other* scoped query inside the job returns nothing until it acts in the organization. Wrap the work in `app(CurrentOrganization::class)->run($organization, fn () => ...)`, never a bare `set()`: a job run inline (the `sync` queue, or called during a request) shares the request's instance, and `run()` restores it afterwards.
+10. **Writes go through the model.** `BelongsToOrganization` forces `organization_id` on create and refuses moving a row, but only in model events: query-builder `update([...])`, `insert()`, `upsert()` and `*Quietly()` skip them. Never pass request input to a builder `update()` on a tenant model, and don't bulk-insert tenant rows.
 
 ## Tests (`api/tests/Feature/<Things>/`)
 Use the helpers from `tests/Pest.php`: `userInOrganization()`, `addMember()`, `inOrganization()`.

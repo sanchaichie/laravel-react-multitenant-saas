@@ -148,9 +148,13 @@ cleanup() {
     $hasOrgs = Illuminate\Support\Facades\Schema::hasTable("organization_user");
     $orgIds = $hasOrgs ? DB::table("organization_user")->whereIn("user_id", $ids)->pluck("organization_id")->unique() : collect();
     $shared = $hasOrgs ? DB::table("organization_user")->whereIn("organization_id", $orgIds)->whereNotIn("user_id", $ids)->pluck("organization_id") : collect();
-    $users->each(fn ($user) => $user->tokens()->delete());
-    App\Models\User::whereIn("id", $ids)->delete();
-    $orgs = $hasOrgs ? App\Models\Organization::whereIn("id", $orgIds->diff($shared))->delete() : 0;
+    // All or nothing: users first would cascade their memberships, and a failure
+    // after that would leave organizations nobody can find (or clean up) again.
+    $orgs = DB::transaction(function () use ($users, $ids, $hasOrgs, $orgIds, $shared) {
+        $users->each(fn ($user) => $user->tokens()->delete());
+        App\Models\User::whereIn("id", $ids)->delete();
+        return $hasOrgs ? App\Models\Organization::whereIn("id", $orgIds->diff($shared))->delete() : 0;
+    });
     echo "deleted {$ids->count()} {$prefix}* users and {$orgs} organizations\n";
   '
 }
