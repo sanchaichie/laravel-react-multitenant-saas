@@ -77,8 +77,13 @@ The API answers on `http://localhost:8100/api`:
 | `POST /api/invitations` | Invite (`email`, `role`); needs a verified email. Emails a 7-day link to `/join/{token}` |
 | `DELETE /api/invitations/{id}` | Revoke |
 | `GET /api/join/{token}` / `POST /api/join/{token}` | See and accept an invitation (logged in as the invited address) |
+| `GET /api/tasks` | Tasks of the current organization, 20 a page. Filters: `status`, `priority`, `assignee` (an id, `me` or `none`), `overdue=1`, `search`; `sort` = `newest`, `due` or `priority`; `page` |
+| `POST /api/tasks` | Create (`title`, and optionally `description`, `status`, `priority`, `due_date` as `YYYY-MM-DD`, `assignee_id`: a member) |
+| `GET /api/tasks/{id}` | One task, with what you may do (`can`) and `is_overdue` |
+| `PATCH /api/tasks/{id}` | Change any of the fields above |
+| `DELETE /api/tasks/{id}` | Delete |
 
-Organization-scoped routes (members, invitations) act on your current organization: there's never an organization id in the URL.
+Organization-scoped routes (members, invitations, tasks) act on your current organization: there's never an organization id in the URL.
 
 Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email.
 

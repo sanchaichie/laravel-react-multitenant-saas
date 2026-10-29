@@ -19,7 +19,7 @@ it('returns the logged-in user with their current organization and role', functi
         ->assertJsonPath('data.current_organization.id', $acme->id)
         ->assertJsonPath('data.current_organization.name', 'Acme')
         ->assertJsonPath('data.current_organization.role', 'admin')
-        ->assertJsonPath('data.current_organization.permissions', ['members.invite', 'members.manage'])
+        ->assertJsonPath('data.current_organization.permissions', ['members.invite', 'members.manage', 'tasks.manage'])
         ->assertJsonPath('data.email_verified', true);
 });
 

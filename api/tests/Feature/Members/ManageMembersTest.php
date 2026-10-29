@@ -2,6 +2,7 @@
 
 use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Models\Task;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
@@ -99,4 +100,30 @@ it('needs a current organization and a login', function () {
 
     Sanctum::actingAs(User::factory()->create());
     $this->getJson('/api/members')->assertForbidden();
+});
+
+it('unassigns the tasks of someone who leaves or is removed, in that organization only', function () {
+    $member = addMember($this->organization);
+    [, $other] = userInOrganization(OrganizationRole::Owner, 'Other');
+    $other->members()->attach($member, ['role' => OrganizationRole::Member]);
+
+    [$here, $elsewhere] = [
+        inOrganization($this->organization, fn () => Task::factory()->assignedTo($member)->create()),
+        inOrganization($other, fn () => Task::factory()->assignedTo($member)->create()),
+    ];
+    $unrelated = inOrganization($this->organization, fn () => Task::factory()->assignedTo($this->owner)->create());
+
+    Sanctum::actingAs($this->owner);
+    $this->deleteJson("/api/members/{$member->id}")->assertNoContent();
+
+    expect(Task::withoutGlobalScopes()->find($here->id)->assignee_id)->toBeNull()
+        ->and(Task::withoutGlobalScopes()->find($elsewhere->id)->assignee_id)->toBe($member->id)
+        ->and(Task::withoutGlobalScopes()->find($unrelated->id)->assignee_id)->toBe($this->owner->id);
+
+    // Leaving does the same.
+    Sanctum::actingAs($member);
+    $member->forceFill(['current_organization_id' => $other->id])->save();
+    $this->deleteJson("/api/members/{$member->id}")->assertNoContent();
+
+    expect(Task::withoutGlobalScopes()->find($elsewhere->id)->assignee_id)->toBeNull();
 });

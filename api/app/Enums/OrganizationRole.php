@@ -24,7 +24,7 @@ enum OrganizationRole: string
     {
         return match ($this) {
             self::Owner => Permission::cases(),
-            self::Admin => [Permission::MembersInvite, Permission::MembersManage],
+            self::Admin => [Permission::MembersInvite, Permission::MembersManage, Permission::TasksManage],
             self::Member => [],
         };
     }

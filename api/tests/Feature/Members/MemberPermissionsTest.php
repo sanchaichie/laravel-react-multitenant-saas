@@ -25,7 +25,7 @@ function actor(OrganizationRole $role): User
 
 it('maps roles to permissions, and knows which roles include which', function () {
     expect(OrganizationRole::Owner->grants())->toBe(Permission::cases())
-        ->and(OrganizationRole::Admin->grants())->toBe([Permission::MembersInvite, Permission::MembersManage])
+        ->and(OrganizationRole::Admin->grants())->toBe([Permission::MembersInvite, Permission::MembersManage, Permission::TasksManage])
         ->and(OrganizationRole::Member->grants())->toBe([])
         ->and(OrganizationRole::Owner->includes(OrganizationRole::Admin))->toBeTrue()
         ->and(OrganizationRole::Admin->includes(OrganizationRole::Admin))->toBeTrue()

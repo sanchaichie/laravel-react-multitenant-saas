@@ -7,6 +7,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -25,6 +26,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // JSON 403 with code email_unverified, in place of Laravel's redirect.
             'verified' => EnsureEmailIsVerified::class,
         ]);
+
+        // Before route model binding: {task} binds through the organization scope, so
+        // without this a request with no organization (or from a tab that's behind)
+        // would get a 404 instead of the 403 / 409 that tells the app what happened.
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureCurrentOrganization::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

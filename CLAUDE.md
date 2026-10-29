@@ -30,6 +30,10 @@ A rebuild of `../saas-starter` (Laravel + Nuxt) with a React frontend, made to l
 ## Tasks (the reference feature, plan 07)
 - Tenant-owned: title, description, status (`todo`, `in_progress`, `done`; an enum), priority (`low`, `medium`, `high`), `due_date` (date, nullable), `assignee_id` (nullable, must be a member of the same organization; set to null when they leave), `created_by`.
 - The list filters by status, assignee, priority, overdue and search, and is paginated. Filters live in the URL.
+- Permissions: anyone in the organization lists, views and creates; `tasks.manage` (Owner, Admin) edits and deletes any task; otherwise you edit tasks you created or are assigned to, and delete the ones you created.
+- The assignee is checked twice: the form request (`Rule::exists` on `organization_user` scoped to the current organization) and the actions (`LocksAssignee`: a `FOR SHARE` lock on that membership, so `RemoveMember` waits and then unassigns).
+- Overdue (due before the API's today, not done) is decided by the server: `Task::scopeOverdue()` for the filter, `is_overdue` in the resource. The app never compares dates; `due_date` is a plain `YYYY-MM-DD` string.
+- The `organization` middleware runs before route model binding (`bootstrap/app.php`), so a missing organization or a stale tab gets its 403/409 instead of a 404 from the scoped binding.
 
 ## Backend conventions
 - Thin controllers. Business logic in Action or Service classes.

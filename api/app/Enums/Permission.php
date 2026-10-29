@@ -12,4 +12,5 @@ enum Permission: string
     case MembersInvite = 'members.invite';
     case MembersManage = 'members.manage';
     case OrganizationManage = 'organization.manage';
+    case TasksManage = 'tasks.manage';
 }

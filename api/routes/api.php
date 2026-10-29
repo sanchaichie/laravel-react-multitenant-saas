@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\TaskController;
 use Illuminate\Support\Facades\Route;
 
 // Separate counters, so failed logins don't use up registrations. 'login' is per
@@ -45,5 +46,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/invitations', [InvitationController::class, 'index']);
         Route::post('/invitations', [InvitationController::class, 'store'])->middleware(['verified', 'throttle:invitations']);
         Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->where('invitation', '[0-9]{1,18}');
+
+        // {task} binds through the organization scope: another organization's task is a 404.
+        Route::get('/tasks', [TaskController::class, 'index']);
+        Route::get('/tasks/{task}', [TaskController::class, 'show'])->where('task', '[0-9]{1,18}');
+        Route::middleware('throttle:120,1,tasks')->group(function () {
+            Route::post('/tasks', [TaskController::class, 'store']);
+            Route::patch('/tasks/{task}', [TaskController::class, 'update'])->where('task', '[0-9]{1,18}');
+            Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->where('task', '[0-9]{1,18}');
+        });
     });
 });
