@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\OrganizationRole;
+use App\Enums\Permission;
 use App\Models\Organization;
 use App\Models\User;
 use Closure;
@@ -42,6 +43,14 @@ class CurrentOrganization
         $this->resolve();
 
         return $this->role;
+    }
+
+    /**
+     * Whether the user's role here grants the permission (false without one).
+     */
+    public function can(Permission $permission): bool
+    {
+        return $this->role()?->can($permission) ?? false;
     }
 
     /**

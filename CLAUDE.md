@@ -36,7 +36,9 @@ A rebuild of `../saas-starter` (Laravel + Nuxt) with a React frontend, made to l
 - Use Form Requests for validation and API Resources for responses.
 - Migrations only. Never edit an existing migration that has been committed; add a new one.
 - Do not edit `.env`. Add new keys to `.env.example` with a comment.
-- Features that reach other people or cost money (invitations, joining, billing, AI) use the `verified` middleware (403 `email_unverified`).
+- Features that reach other people or cost money (invitations, billing, AI) use the `verified` middleware (403 `email_unverified`). Joining doesn't: accepting an invitation verifies the email, since its link reached that inbox (`AcceptInvitation`).
+- Policies check `App\Enums\Permission` through `CurrentOrganization::can()` / `role()->can()`, never role names. You may only act on, or give, a role your own role `includes()` (its permissions are a subset of yours): that's what keeps admins away from owners. An organization always keeps an owner (`EnsuresAnOwnerRemains`: lock the organization row first, then the owner rows in id order). Resources return `can` flags (and `assignable_roles` for members) so the app never repeats the rules.
+- Email: mail and notifications are queued (tries + backoff) and take plain values. Links point at the app (`config('app.frontend_url')`). Locally they go to `storage/logs/laravel.log` and need `php artisan queue:work`; `servers.sh start --mail` sends them at once.
 - Tokens are only issued through `IssueToken`. A new way to log in must go through the same checks (two-factor from plan 15, suspension from plan 17).
 - Email links point at the React app (`config('app.frontend_url')`), which posts them back to the API.
 
@@ -55,6 +57,8 @@ A rebuild of `../saas-starter` (Laravel + Nuxt) with a React frontend, made to l
 - Tests: Vitest + Testing Library (jsdom). `src/test/utils.tsx` has `renderApp(path)` (the real routes in a memory router), `mockApi({ 'POST /api/login': ... })` (fails on any unmocked request), `logIn()`, the `acme`/`beta` organizations with `organizationList()`, and `logOutFromMenu()`. Logged-in pages load `GET /api/organizations` (the switcher), so mock it. `src/test/setup.ts` stubs the browser APIs jsdom lacks (`matchMedia`, `ResizeObserver`, pointer capture). Radix submenus: drive them with the keyboard in tests. Lint is oxlint (`.oxlintrc.json`: rules of hooks, exhaustive deps, no `any`).
 - Forms use react-hook-form with a zod schema; 422 errors are mapped onto fields.
 - Use shadcn/ui components before writing custom ones. Check the shadcn MCP before guessing a component's API.
+- Show or hide controls with `useCan(permission)` (current organization) or the resource's `can` flags; the API decides. Confirm destructive actions with `components/ConfirmDialog`. A Radix `Select` in a react-hook-form form goes through `Controller` (it isn't a native input).
+- Work that must happen after a mutation even if the component unmounts (leaving an organization drops the list it's in) goes in `useMutation({ onSuccess })`, not in `mutate(vars, { onSuccess })`: TanStack Query skips the latter once its component is gone. Use `onMutate`'s return value (`context`) for anything read before the request.
 - Every page has loading, empty and error states. Dates render with a fixed locale and time zone.
 
 ## Later conventions

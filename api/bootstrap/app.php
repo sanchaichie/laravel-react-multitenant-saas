@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureCurrentOrganization;
+use App\Http\Middleware\EnsureEmailIsVerified;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'organization' => EnsureCurrentOrganization::class,
+            // JSON 403 with code email_unverified, in place of Laravel's redirect.
+            'verified' => EnsureEmailIsVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

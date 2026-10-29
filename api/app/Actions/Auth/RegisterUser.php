@@ -15,7 +15,7 @@ class RegisterUser
 
     /**
      * Create a user with a personal organization (they're its Owner, and it's
-     * current) and issue their first API token.
+     * current), send the email verification link and issue their first API token.
      *
      * @param  array{name: string, email: string, password: string, device_name?: string|null}  $data
      * @return array{user: User, token: string}
@@ -33,6 +33,9 @@ class RegisterUser
 
             return $user;
         });
+
+        // Queued: inviting people needs a verified email (the 'verified' middleware).
+        $user->sendEmailVerificationNotification();
 
         return ['user' => $user, 'token' => $this->issueToken->handle($user, $data['device_name'] ?? null)];
     }

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Markdown;
 use Illuminate\Support\ConfigurationUrlParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -55,5 +56,27 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(30)->by('login:'.$email),
             ];
         });
+
+        // Mail goes to addresses users type in: cap how much one account can send, so
+        // the app can't be used to flood an inbox.
+        RateLimiter::for('verify-email', fn (Request $request) => [
+            Limit::perMinute(6)->by('verify-email:'.$request->user()?->id),
+            Limit::perHour(10)->by('verify-email:hour:'.$request->user()?->id),
+        ]);
+        RateLimiter::for('invitations', function (Request $request) {
+            $organizationId = app(CurrentOrganization::class)->id();
+
+            return [
+                Limit::perMinute(20)->by('invitations:'.$request->user()?->id),
+                Limit::perDay(200)->by('invitations:org:'.$organizationId),
+                // Re-inviting sends the email again: not over and over to one address.
+                Limit::perHour(3)->by('invitations:to:'.$organizationId.'|'.mb_strtolower(trim((string) $request->input('email')))),
+            ];
+        });
+
+        // {{ }} in Markdown mail escapes HTML but not Markdown: without this, a name
+        // like "[Confirm your account](https://evil.example)" becomes a real link in
+        // an invitation sent from our address.
+        Markdown::withSecuredEncoding();
     }
 }

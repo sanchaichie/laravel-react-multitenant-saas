@@ -101,6 +101,11 @@ return [
         ],
     ],
 
+    // Minutes an email verification link stays valid (App\Notifications\VerifyEmail).
+    'verification' => [
+        'expire' => 60,
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Password Confirmation Timeout
