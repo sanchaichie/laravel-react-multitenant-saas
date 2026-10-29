@@ -21,7 +21,7 @@ export function SelectOrganizationPage() {
 
   const current = useCurrentOrganization()
   const organizations = useOrganizations()
-  const switchOrganization = useSwitchOrganization()
+  const switchOrganization = useSwitchOrganization({ toSectionRoot: false })
   const organizationChosen = useAuth((s) => s.organizationChosen)
   const logout = useLogout()
   const navigate = useNavigate()

@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { roleLabel } from '@/features/organizations/api'
 import { formatDate } from '@/lib/format'
@@ -23,7 +24,10 @@ export function HomePage() {
             {organization ? (
               <>
                 You're working in <span className="font-medium text-foreground">{organization.name}</span> as{' '}
-                {roleLabel(organization.role)}. Tasks come next.
+                {roleLabel(organization.role)}.{' '}
+                <Link to="/tasks?assignee=me" className="font-medium text-foreground underline underline-offset-4">
+                  See your tasks
+                </Link>
               </>
             ) : (
               "No organization selected. Choose or create one from the switcher in the sidebar."

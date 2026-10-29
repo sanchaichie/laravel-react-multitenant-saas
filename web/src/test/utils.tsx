@@ -12,7 +12,7 @@ export const acme: Organization = {
   id: 10,
   name: 'Acme',
   role: 'owner',
-  permissions: ['members.invite', 'members.manage', 'organization.manage'],
+  permissions: ['members.invite', 'members.manage', 'organization.manage', 'tasks.manage'],
   created_at: '2026-10-01T12:00:00.000000Z',
 }
 export const beta: Organization = { id: 20, name: 'Beta', role: 'member', permissions: [], created_at: '2026-10-02T12:00:00.000000Z' }
@@ -56,11 +56,12 @@ export function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-type Handler = (init: RequestInit) => Response | Promise<Response>
+/** Gets the request's init, and its URL (for the query string). */
+type Handler = (init: RequestInit, url: URL) => Response | Promise<Response>
 
 /**
- * Replaces fetch: each "METHOD /path" gets its handler's response; anything else
- * fails the test. Returns the mock to inspect calls.
+ * Replaces fetch: each "METHOD /path" (without the query string) gets its handler's
+ * response; anything else fails the test. Returns the mock to inspect calls.
  */
 export function mockApi(handlers: Record<string, Handler>) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -71,7 +72,7 @@ export function mockApi(handlers: Record<string, Handler>) {
       throw new Error(`Unexpected request: ${key}`)
     }
 
-    return handler(init)
+    return handler(init, url)
   })
   vi.stubGlobal('fetch', fetchMock)
 

@@ -11,6 +11,8 @@ import { NotFoundPage } from '@/routes/NotFoundPage'
 import { RegisterPage } from '@/routes/RegisterPage'
 import { RouteErrorPage } from '@/routes/RouteErrorPage'
 import { SelectOrganizationPage } from '@/routes/SelectOrganizationPage'
+import { TaskDetailPage } from '@/routes/TaskDetailPage'
+import { TasksPage } from '@/routes/TasksPage'
 import { VerifyEmailPage } from '@/routes/VerifyEmailPage'
 
 // Routes without a `path` are layout routes: they render around their children
@@ -38,6 +40,8 @@ export const routes: RouteObject[] = [
             element: <AppLayout />,
             children: [
               { index: true, element: <HomePage /> },
+              { path: 'tasks', element: <TasksPage /> },
+              { path: 'tasks/:id', element: <TaskDetailPage /> },
               { path: 'members', element: <MembersPage /> },
             ],
           },

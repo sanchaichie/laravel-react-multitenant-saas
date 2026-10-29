@@ -8,7 +8,7 @@ argument-hint: "[feature, e.g. clients]"
 
 Feature: $ARGUMENTS
 
-Tasks is the reference implementation (built in plan 07; before then, follow saas-starter's Projects, which has the same shape). Open each file named below and follow its shape rather than inventing a new one. If the change touches more than 3 files (it will), run the `plan-task` skill first and wait for approval.
+Tasks is the reference implementation (plan 07). Open each file named below and follow its shape rather than inventing a new one. If the change touches more than 3 files (it will), run the `plan-task` skill first and wait for approval.
 
 ## API (`api/`)
 1. **Migration** (`php artisan make:migration create_<things>_table`). Reference: `database/migrations/*_create_tasks_table.php`.
@@ -55,15 +55,15 @@ Use the helpers from `tests/Pest.php`: `userInOrganization()`, `addMember()`, `i
    - Query keys start with `['org', currentOrganizationId, '<things>', ...]`, so switching organization never shows the old one's data (the switch removes `['org']` queries).
    - Mutations invalidate the list and update the detail query.
 3. **Form component:** reference `features/tasks/TaskForm.tsx`. react-hook-form + a zod schema; 422 responses go onto fields with `applyServerErrors` (`lib/apiErrors.ts`).
-4. **List route:** reference `routes/tasks/index.tsx`.
-   - Page, filters and search live in the URL (`useSearchParams`), search debounced.
-   - Reset to page 1 when the organization changes.
+4. **List route:** reference `routes/TasksPage.tsx` (filters in `features/tasks/useTaskFilters.ts` and `filters.ts`).
+   - Page, filters and search live in the URL (`useSearchParams`), search debounced (`useDebouncedCallback`).
+   - Switching organization already goes back to the section root (`useEnterOrganization`), dropping filters and page.
    - shadcn `Table` with an empty state, pagination, and a create `Dialog`.
-5. **Detail route:** reference `routes/tasks/detail.tsx`.
+5. **Detail route:** reference `routes/TaskDetailPage.tsx`.
    - A 404 shows "not found" (another organization's record shows the same thing).
    - Show Edit and Delete only according to `can`. Confirm deletes in an `AlertDialog`.
-   - Go back to the list when the organization changes.
-6. **Navigation:** add the routes in `router.tsx` and a link in the sidebar (`components/layout/AppSidebar.tsx`), shown only with a current organization.
+   - Go back to the list when the organization changes (a 409 from another tab doesn't go through the switcher): remember the organization on mount and render `<Navigate>`, without fetching the record in the new one.
+6. **Navigation:** add the routes in `router.tsx` and an entry in `navigation` (`components/AppSidebar.tsx`).
 7. Make every API call through `apiFetch`. Never send `organization_id` from the frontend.
 
 ## Finish

@@ -9,7 +9,7 @@ A multi-organization SaaS starter with a Laravel API and a React app, being rebu
 - **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
 
 ## Status
-You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. The current organization is kept on the server, and every organization's data is walled off from the others. Tasks come next. The roadmap is in [docs/plans](docs/plans/README.md).
+You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
 
 ## Requirements
 PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
@@ -108,6 +108,8 @@ GitHub Actions runs all of these on every push to `main` and every pull request 
 | **Choose an organization**, after logging in when you're in several | **Members**: roles, invite by email, pending invitations |
 | ![Join an organization](docs/screenshots/join.png) | ![Verify your email](docs/screenshots/verify-email-banner.png) |
 | **Invitation link**: accept to join | **Verify your email** banner, with Resend |
+| ![Tasks](docs/screenshots/tasks.png) | ![A task](docs/screenshots/task-detail.png) |
+| **Tasks**: filter by status, priority, assignee and overdue, search and sort (all in the URL) | **A task**: change its status in place, edit or delete it per your permissions |
 
 ## Working with Claude Code
 The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.

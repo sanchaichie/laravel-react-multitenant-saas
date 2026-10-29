@@ -3,7 +3,7 @@
 export type OrganizationRole = 'owner' | 'admin' | 'member'
 
 /** What a role allows (App\\Enums\\Permission). Only for showing controls: the API decides. */
-export type Permission = 'members.invite' | 'members.manage' | 'organization.manage'
+export type Permission = 'members.invite' | 'members.manage' | 'organization.manage' | 'tasks.manage'
 
 /** An organization as the current user sees it: with their role in it. */
 export interface Organization {
@@ -92,4 +92,60 @@ export interface InvitationPreview {
   email: string
   expires_at: string
   already_member: boolean
+}
+
+/** A page of a Laravel paginated resource collection. */
+export interface Paginated<T> {
+  data: T[]
+  links: { first: string | null; last: string | null; prev: string | null; next: string | null }
+  meta: { current_page: number; last_page: number; per_page: number; total: number; from: number | null; to: number | null }
+}
+
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
+export type TaskPriority = 'low' | 'medium' | 'high'
+export type TaskSort = 'newest' | 'due' | 'priority'
+
+/** Someone a task points at (assignee, creator): null once they're gone. */
+export interface TaskPerson {
+  id: number
+  name: string
+}
+
+export interface Task {
+  id: number
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  /** A plain date, 'YYYY-MM-DD' (no time zone). */
+  due_date: string | null
+  /** Due before the API's today and not done: the app never compares dates itself. */
+  is_overdue: boolean
+  assignee: TaskPerson | null
+  creator: TaskPerson | null
+  created_at: string
+  updated_at: string
+  can: { update: boolean; delete: boolean }
+}
+
+/** What create sends; update (PATCH) sends only the fields changed in the form. */
+export interface TaskPayload {
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  due_date: string | null
+  assignee_id: number | null
+}
+
+/** The list's filters, as they appear in the URL (GET /api/tasks takes the same). */
+export interface TaskFilters {
+  status?: TaskStatus
+  priority?: TaskPriority
+  /** A member's id, 'me', or 'none' (unassigned). */
+  assignee?: string
+  overdue?: boolean
+  search?: string
+  sort?: TaskSort
+  page?: number
 }

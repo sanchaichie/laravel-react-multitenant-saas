@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { LayoutDashboardIcon, UsersIcon } from 'lucide-react'
+import { LayoutDashboardIcon, ListTodoIcon, UsersIcon } from 'lucide-react'
 import { NavLink, useMatch } from 'react-router'
 import {
   Sidebar,
@@ -24,9 +24,9 @@ interface NavItem {
   icon: ComponentType<{ 'aria-hidden'?: boolean }>
 }
 
-// Tasks (plan 07) joins this list.
 const navigation: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboardIcon },
+  { to: '/tasks', label: 'Tasks', icon: ListTodoIcon },
   { to: '/members', label: 'Members', icon: UsersIcon },
 ]
 
@@ -68,7 +68,9 @@ export function AppSidebar() {
 }
 
 function NavItemLink({ item }: { item: NavItem }) {
-  const isActive = useMatch({ path: item.to, end: true }) !== null
+  // Tasks stays active on /tasks/42; only the Dashboard ('/') needs an exact match.
+  const end = item.to === '/'
+  const isActive = useMatch({ path: item.to, end }) !== null
   const { setOpenMobile } = useSidebar()
   const Icon = item.icon
 
@@ -76,7 +78,7 @@ function NavItemLink({ item }: { item: NavItem }) {
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
         {/* NavLink also sets aria-current="page" on the active link. */}
-        <NavLink to={item.to} end onClick={() => setOpenMobile(false)}>
+        <NavLink to={item.to} end={end} onClick={() => setOpenMobile(false)}>
           <Icon aria-hidden />
           <span>{item.label}</span>
         </NavLink>
