@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Events\TaskCreated;
@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    [$this->owner, $this->organization] = userInOrganization(OrganizationRole::Owner);
-    $this->member = addMember($this->organization, OrganizationRole::Member, ['name' => 'Mia']);
+    [$this->owner, $this->organization] = userInOrganization(DefaultRole::Owner);
+    $this->member = addMember($this->organization, DefaultRole::Member, ['name' => 'Mia']);
     Sanctum::actingAs($this->owner);
 });
 
@@ -56,7 +56,7 @@ it('creates a task with every field', function () {
 });
 
 it('ignores organization_id and created_by in the payload', function () {
-    [, $other] = userInOrganization(OrganizationRole::Owner, 'Other');
+    [, $other] = userInOrganization(DefaultRole::Owner, 'Other');
 
     $id = $this->postJson('/api/tasks', [
         'title' => 'Mine',
@@ -97,7 +97,7 @@ it('updates only the fields sent', function () {
 });
 
 it('can\'t move a task to another organization or change its creator', function () {
-    [, $other] = userInOrganization(OrganizationRole::Owner, 'Other');
+    [, $other] = userInOrganization(DefaultRole::Owner, 'Other');
     $task = inOrganization($this->organization, fn () => Task::factory()->createdBy($this->owner)->create());
 
     $this->patchJson("/api/tasks/{$task->id}", ['organization_id' => $other->id, 'created_by' => $this->member->id, 'title' => 'Still here'])

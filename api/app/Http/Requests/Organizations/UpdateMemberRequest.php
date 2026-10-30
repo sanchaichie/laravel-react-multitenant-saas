@@ -2,12 +2,13 @@
 
 namespace App\Http\Requests\Organizations;
 
-use App\Enums\OrganizationRole;
+use App\Http\Requests\Organizations\Concerns\ValidatesRoleId;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateMemberRequest extends FormRequest
 {
+    use ValidatesRoleId;
+
     // Whether this role may be given to this member is the policy's call (MembershipPolicy::update).
     public function authorize(): bool
     {
@@ -20,12 +21,7 @@ class UpdateMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role' => ['required', Rule::enum(OrganizationRole::class)],
+            'role_id' => $this->roleIdRules(),
         ];
-    }
-
-    public function role(): OrganizationRole
-    {
-        return OrganizationRole::from($this->validated('role'));
     }
 }

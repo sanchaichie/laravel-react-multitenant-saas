@@ -5,6 +5,8 @@ namespace App\Actions\Organizations;
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\Role;
+use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -26,17 +28,21 @@ class AcceptInvitation
     public function handle(User $user, string $token): Organization
     {
         return DB::transaction(function () use ($user, $token) {
-            // The organization first, then the invitation: the same order as the
-            // member actions (EnsuresAnOwnerRemains), so they can't deadlock.
-            $organizationId = OrganizationInvitation::findByToken($token)?->organization_id;
-            $organization = $organizationId === null ? null : static::lockOrganizationRow($organizationId);
-            $invitation = $organization === null ? null : OrganizationInvitation::findByToken($token, lock: true);
+            // The organization, its role, then the invitation: the same order as the
+            // member actions and DeleteRole (EnsuresAnOwnerRemains), so they can't
+            // deadlock. Locked FOR SHARE, the role can't be deleted until we're done;
+            // if it already was, the invitation has lost it and isn't usable.
+            $unlocked = OrganizationInvitation::findByToken($token);
+            $organization = $unlocked === null ? null : static::lockOrganizationRow($unlocked->organization_id);
+            $roleLocked = $unlocked?->role_id !== null
+                && Role::query()->withoutGlobalScope(OrganizationScope::class)->whereKey($unlocked->role_id)->sharedLock()->first() !== null;
+            $invitation = $organization === null || ! $roleLocked ? null : OrganizationInvitation::findByToken($token, lock: true);
 
             static::ensureUsableBy($invitation, $user);
 
             // Already a member (added another way): keep the existing role.
             if (! $user->isMemberOf($organization)) {
-                $organization->members()->attach($user, ['role' => $invitation->role]);
+                $organization->members()->attach($user, ['role_id' => $invitation->role_id]);
             }
 
             $invitation->forceFill(['accepted_at' => now()])->save();

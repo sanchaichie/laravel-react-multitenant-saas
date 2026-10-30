@@ -2,7 +2,8 @@
 
 namespace App\Actions\Organizations;
 
-use App\Enums\OrganizationRole;
+use App\Actions\Roles\CreateDefaultRoles;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\CurrentOrganization;
@@ -10,7 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 class CreateOrganization
 {
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
+    public function __construct(
+        private readonly CurrentOrganization $currentOrganization,
+        private readonly CreateDefaultRoles $createDefaultRoles,
+    ) {}
 
     /**
      * Create an organization owned by the user and make it their current one.
@@ -20,7 +24,8 @@ class CreateOrganization
     {
         $organization = DB::transaction(function () use ($owner, $name) {
             $organization = Organization::create(['name' => $name]);
-            $organization->members()->attach($owner, ['role' => OrganizationRole::Owner]);
+            $roles = $this->createDefaultRoles->handle($organization);
+            $organization->members()->attach($owner, ['role_id' => $roles[DefaultRole::Owner->value]->id]);
 
             $owner->forceFill(['current_organization_id' => $organization->id])->save();
 

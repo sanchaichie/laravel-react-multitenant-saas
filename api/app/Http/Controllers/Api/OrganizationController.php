@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizations\StoreOrganizationRequest;
 use App\Http\Resources\OrganizationResource;
 use App\Support\CurrentOrganization;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -18,6 +19,8 @@ class OrganizationController extends Controller
     public function index(Request $request, CurrentOrganization $currentOrganization): AnonymousResourceCollection
     {
         $organizations = $request->user()->organizations()->orderBy('name')->orderBy('organizations.id')->get();
+        // Each membership's role in one query (eager loading can't reach through the pivot).
+        (new EloquentCollection($organizations->pluck('membership')))->load('role');
 
         return OrganizationResource::collection($organizations)
             ->additional(['meta' => ['current_organization_id' => $currentOrganization->id()]]);

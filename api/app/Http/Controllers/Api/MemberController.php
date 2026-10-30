@@ -34,9 +34,10 @@ class MemberController extends Controller
     {
         $organization = $this->currentOrganization->get();
         $member = $organization->members()->findOrFail($member);
-        Gate::authorize('update', [$member->membership, $request->role()]);
+        $role = $request->role();
+        Gate::authorize('update', [$member->membership, $role]);
 
-        return new MemberResource($action->handle($organization, $member, $request->role()));
+        return new MemberResource($action->handle($organization, $member, $role));
     }
 
     // Removing someone, or leaving when {member} is yourself.

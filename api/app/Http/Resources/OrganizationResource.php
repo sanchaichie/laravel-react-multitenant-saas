@@ -21,12 +21,11 @@ class OrganizationResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             // The requesting user's role; present when loaded through User::organizations().
-            'role' => $this->whenPivotLoadedAs('membership', 'organization_user', fn () => $this->membership->role->value),
+            'role' => $this->whenPivotLoadedAs('membership', 'organization_user', fn () => new RoleSummaryResource($this->membership->role)),
             // What that role allows, so the app can show or hide controls (the server still decides).
-            'permissions' => $this->whenPivotLoadedAs('membership', 'organization_user', fn () => array_map(
-                fn (Permission $permission) => $permission->value,
-                $this->membership->role->grants(),
-            )),
+            'permissions' => $this->whenPivotLoadedAs('membership', 'organization_user', fn () => $this->membership->role->grants()
+                ->map(fn (Permission $permission) => $permission->value)
+                ->values()),
             'created_at' => $this->created_at,
         ];
     }

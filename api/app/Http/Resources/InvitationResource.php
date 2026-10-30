@@ -23,7 +23,7 @@ class InvitationResource extends JsonResource
         return [
             'id' => $this->id,
             'email' => $this->email,
-            'role' => $this->role->value,
+            'role' => $this->role ? new RoleSummaryResource($this->role) : null,
             'invited_by' => $this->whenLoaded('inviter', fn () => $this->inviter?->name),
             'expires_at' => $this->expires_at,
             'expired' => $this->isExpired(),

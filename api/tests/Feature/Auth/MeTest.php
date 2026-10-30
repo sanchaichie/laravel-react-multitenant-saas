@@ -1,10 +1,10 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\User;
 
 it('returns the logged-in user with their current organization and role', function () {
-    [$user, $acme] = userInOrganization(OrganizationRole::Admin, 'Acme');
+    [$user, $acme] = userInOrganization(DefaultRole::Admin, 'Acme');
     $user->update(['name' => 'Ada Lovelace', 'email' => 'ada@example.com']);
 
     $this->withToken($user->createToken('web')->plainTextToken)
@@ -18,8 +18,8 @@ it('returns the logged-in user with their current organization and role', functi
         ->assertJsonPath('data.email', 'ada@example.com')
         ->assertJsonPath('data.current_organization.id', $acme->id)
         ->assertJsonPath('data.current_organization.name', 'Acme')
-        ->assertJsonPath('data.current_organization.role', 'admin')
-        ->assertJsonPath('data.current_organization.permissions', ['members.invite', 'members.manage', 'tasks.manage'])
+        ->assertJsonPath('data.current_organization.role.name', 'Admin')
+        ->assertJsonPath('data.current_organization.permissions', ['tasks.create', 'tasks.manage', 'members.invite', 'members.manage'])
         ->assertJsonPath('data.email_verified', true);
 });
 

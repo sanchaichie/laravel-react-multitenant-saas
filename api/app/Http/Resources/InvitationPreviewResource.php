@@ -22,7 +22,7 @@ class InvitationPreviewResource extends JsonResource
         return [
             'organization' => ['name' => $this->organization->name],
             'invited_by' => $this->inviter?->name,
-            'role' => $this->role->value,
+            'role' => $this->role ? new RoleSummaryResource($this->role) : null,
             'email' => $this->email,
             'expires_at' => $this->expires_at,
             'already_member' => $request->user()->isMemberOf($this->organization_id),

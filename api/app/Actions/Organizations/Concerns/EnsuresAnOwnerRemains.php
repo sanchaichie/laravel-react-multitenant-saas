@@ -2,9 +2,9 @@
 
 namespace App\Actions\Organizations\Concerns;
 
-use App\Enums\OrganizationRole;
 use App\Models\Membership;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
@@ -39,7 +39,7 @@ trait EnsuresAnOwnerRemains
     {
         $owners = Membership::query()
             ->where('organization_id', $organization->id)
-            ->where('role', OrganizationRole::Owner)
+            ->whereIn('role_id', $organization->roles()->where('is_owner', true)->select('id'))
             ->orderBy('id')
             ->lockForUpdate()
             ->pluck('user_id');
@@ -57,21 +57,20 @@ trait EnsuresAnOwnerRemains
      * changed meanwhile (say, an admin acting on someone just made an owner),
      * refuse rather than act on a role the actor might not include.
      */
-    protected function lockedRole(Organization $organization, User $member): OrganizationRole
+    protected function lockedRole(Organization $organization, User $member): Role
     {
-        $role = Membership::query()
+        $membership = Membership::query()
             ->where('organization_id', $organization->id)
             ->where('user_id', $member->id)
             ->lockForUpdate()
-            ->firstOrFail()
-            ->role;
+            ->firstOrFail();
 
-        if ($role !== $member->membership->role) {
+        if ($membership->role_id !== $member->membership->role_id) {
             throw ValidationException::withMessages([
                 'member' => "{$member->name}'s role just changed. Reload the page and try again.",
             ]);
         }
 
-        return $role;
+        return $membership->role;
     }
 }

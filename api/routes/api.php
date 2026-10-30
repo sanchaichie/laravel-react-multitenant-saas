@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\TaskController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +48,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/invitations', [InvitationController::class, 'index']);
         Route::post('/invitations', [InvitationController::class, 'store'])->middleware(['verified', 'throttle:invitations']);
         Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->where('invitation', '[0-9]{1,18}');
+
+        // {role} binds through the organization scope, like {task}.
+        Route::get('/permissions', [PermissionController::class, 'index']);
+        Route::get('/roles', [RoleController::class, 'index']);
+        Route::middleware('throttle:60,1,roles')->group(function () {
+            Route::post('/roles', [RoleController::class, 'store']);
+            Route::patch('/roles/{role}', [RoleController::class, 'update'])->where('role', '[0-9]{1,18}');
+            Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->where('role', '[0-9]{1,18}');
+        });
 
         // {task} binds through the organization scope: another organization's task is a 404.
         Route::get('/tasks', [TaskController::class, 'index']);

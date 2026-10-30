@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Organizations\InviteMember;
-use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizations\StoreInvitationRequest;
 use App\Http\Resources\InvitationResource;
+use App\Http\Resources\RoleSummaryResource;
 use App\Models\OrganizationInvitation;
+use App\Models\Role;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -20,20 +21,25 @@ use Illuminate\Support\Facades\Gate;
  */
 class InvitationController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(CurrentOrganization $currentOrganization): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', OrganizationInvitation::class);
 
-        $invitations = OrganizationInvitation::pending()->with('inviter')->latest()->orderByDesc('id')->get();
+        $invitations = OrganizationInvitation::pending()->with(['inviter', 'role'])->latest()->orderByDesc('id')->get();
 
         // The roles the requesting user may invite with (the policy's answer), for the form.
-        $invitable = array_values(array_filter(
-            OrganizationRole::cases(),
-            fn (OrganizationRole $role) => Gate::allows('create', [OrganizationInvitation::class, $role]),
-        ));
+        $invitable = $currentOrganization->roles()
+            ->filter(fn (Role $role) => Gate::allows('create', [OrganizationInvitation::class, $role]))
+            ->values();
 
-        return InvitationResource::collection($invitations)
-            ->additional(['meta' => ['invitable_roles' => array_map(fn (OrganizationRole $role) => $role->value, $invitable)]]);
+        // The form starts on the least powerful of them (fewest permissions, then the
+        // oldest), so pressing Invite without looking never grants more than needed.
+        $default = $invitable->sortBy([fn (Role $a, Role $b) => [$a->is_owner, $a->grants()->count(), $a->id] <=> [$b->is_owner, $b->grants()->count(), $b->id]])->first();
+
+        return InvitationResource::collection($invitations)->additional(['meta' => [
+            'invitable_roles' => RoleSummaryResource::collection($invitable),
+            'default_role_id' => $default?->id,
+        ]]);
     }
 
     public function store(StoreInvitationRequest $request, InviteMember $action, CurrentOrganization $currentOrganization): JsonResponse
@@ -47,7 +53,7 @@ class InvitationController extends Controller
             $request->role(),
         );
 
-        return (new InvitationResource($invitation))->response()->setStatusCode(201);
+        return (new InvitationResource($invitation->load('role')))->response()->setStatusCode(201);
     }
 
     public function destroy(int $invitation): Response

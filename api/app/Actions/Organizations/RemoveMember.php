@@ -3,7 +3,6 @@
 namespace App\Actions\Organizations;
 
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
-use App\Enums\OrganizationRole;
 use App\Models\Organization;
 use App\Models\Task;
 use App\Models\User;
@@ -28,7 +27,7 @@ class RemoveMember
         DB::transaction(function () use ($organization, $member) {
             $this->lockOrganization($organization);
 
-            if ($this->lockedRole($organization, $member) === OrganizationRole::Owner) {
+            if ($this->lockedRole($organization, $member)->is_owner) {
                 $this->ensureAnotherOwner($organization, $member, 'member');
             }
 

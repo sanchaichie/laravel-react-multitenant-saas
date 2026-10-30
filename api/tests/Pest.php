@@ -1,8 +1,10 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
+use App\Enums\Permission;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,10 +34,11 @@ pest()->extend(TestCase::class)
 
 /**
  * A user who is a member of a new organization (with the given role) and has it as current.
+ * The organization has its default roles; a Role must be one of its own.
  *
  * @return array{0: User, 1: Organization}
  */
-function userInOrganization(OrganizationRole $role = OrganizationRole::Owner, string $name = 'Acme'): array
+function userInOrganization(DefaultRole $role = DefaultRole::Owner, string $name = 'Acme'): array
 {
     $user = User::factory()->create();
     $organization = Organization::factory()->withMember($user, $role)->create(['name' => $name]);
@@ -49,10 +52,10 @@ function userInOrganization(OrganizationRole $role = OrganizationRole::Owner, st
  *
  * @param  array<string, mixed>  $attributes
  */
-function addMember(Organization $organization, OrganizationRole $role = OrganizationRole::Member, array $attributes = []): User
+function addMember(Organization $organization, DefaultRole|Role $role = DefaultRole::Member, array $attributes = []): User
 {
     $user = User::factory()->create($attributes);
-    $organization->members()->attach($user, ['role' => $role]);
+    $organization->members()->attach($user, ['role_id' => $organization->role($role)->id]);
     $user->forceFill(['current_organization_id' => $organization->id])->save();
 
     return $user;
@@ -64,14 +67,16 @@ function addMember(Organization $organization, OrganizationRole $role = Organiza
  * @param  array<string, mixed>  $attributes  any column, e.g. expires_at or accepted_at
  * @return array{0: OrganizationInvitation, 1: string}
  */
-function createInvitation(Organization $organization, string $email, OrganizationRole $role = OrganizationRole::Member, array $attributes = []): array
+function createInvitation(Organization $organization, string $email, DefaultRole|Role $role = DefaultRole::Member, array $attributes = []): array
 {
     $token = Str::random(48);
 
-    $invitation = inOrganization($organization, function () use ($email, $role, $token, $attributes) {
+    $roleId = $organization->role($role)->id;
+
+    $invitation = inOrganization($organization, function () use ($email, $roleId, $token, $attributes) {
         $invitation = (new OrganizationInvitation)->forceFill(array_merge([
             'email' => $email,
-            'role' => $role,
+            'role_id' => $roleId,
             'token_hash' => OrganizationInvitation::hashToken($token),
             'expires_at' => now()->addDays(OrganizationInvitation::LIFETIME_DAYS),
         ], $attributes));
@@ -95,4 +100,25 @@ function createInvitation(Organization $organization, string $email, Organizatio
 function inOrganization(Organization $organization, Closure $callback): mixed
 {
     return app(CurrentOrganization::class)->run($organization, $callback);
+}
+
+/**
+ * A custom role in the organization (created as its owner would, without the API).
+ *
+ * @param  list<Permission>  $permissions
+ */
+function createRole(Organization $organization, string $name, array $permissions = []): Role
+{
+    return inOrganization($organization, fn () => Role::factory()->create(['name' => $name, 'permissions' => $permissions]));
+}
+
+/**
+ * The id of a default role in the organization (by default, the logged-in user's
+ * current one), to send as role_id.
+ */
+function roleId(DefaultRole $role, ?Organization $organization = null): int
+{
+    $organization ??= Organization::query()->findOrFail(auth()->user()->current_organization_id);
+
+    return $organization->role($role)->id;
 }

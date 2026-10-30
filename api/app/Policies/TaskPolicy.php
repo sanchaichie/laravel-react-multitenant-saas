@@ -28,20 +28,21 @@ class TaskPolicy
 
     public function create(User $user): bool
     {
-        return $this->isMember();
+        return $this->currentOrganization->can(Permission::TasksCreate);
     }
 
-    // The assignee may edit too: that's how a member moves their task to done.
+    // The assignee may edit too: that's how a member moves their task to done. A role
+    // without tasks.create (say, a viewer) only reads, even tasks assigned to them.
     public function update(User $user, Task $task): bool
     {
         return $this->currentOrganization->can(Permission::TasksManage)
-            || ($this->isMember() && in_array($user->id, [$task->created_by, $task->assignee_id], true));
+            || ($this->currentOrganization->can(Permission::TasksCreate) && in_array($user->id, [$task->created_by, $task->assignee_id], true));
     }
 
     public function delete(User $user, Task $task): bool
     {
         return $this->currentOrganization->can(Permission::TasksManage)
-            || ($this->isMember() && $task->created_by === $user->id);
+            || ($this->currentOrganization->can(Permission::TasksCreate) && $task->created_by === $user->id);
     }
 
     private function isMember(): bool

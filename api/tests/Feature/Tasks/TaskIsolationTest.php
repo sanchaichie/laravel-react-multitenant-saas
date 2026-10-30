@@ -1,14 +1,14 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Task;
 use Laravel\Sanctum\Sanctum;
 
 // Org A cannot read or write org B's tasks.
 
 beforeEach(function () {
-    [$this->ownerA, $this->orgA] = userInOrganization(OrganizationRole::Owner, 'Org A');
-    [$this->ownerB, $this->orgB] = userInOrganization(OrganizationRole::Owner, 'Org B');
+    [$this->ownerA, $this->orgA] = userInOrganization(DefaultRole::Owner, 'Org A');
+    [$this->ownerB, $this->orgB] = userInOrganization(DefaultRole::Owner, 'Org B');
     $this->memberB = addMember($this->orgB);
 
     $this->taskA = inOrganization($this->orgA, fn () => Task::factory()->create(['title' => 'Shared word A']));
@@ -56,7 +56,7 @@ it('can\'t assign one of another organization\'s members', function () {
 });
 
 it('stays isolated for someone in both organizations who hasn\'t switched', function () {
-    $this->orgB->members()->attach($this->ownerA, ['role' => OrganizationRole::Owner]);
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => $this->orgB->role(DefaultRole::Owner)->id]);
     Sanctum::actingAs($this->ownerA);
 
     expect(listedIds())->toBe([$this->taskA->id]);
@@ -70,7 +70,7 @@ it('stays isolated for someone in both organizations who hasn\'t switched', func
 });
 
 it('creates tasks in the current organization only', function () {
-    $this->orgB->members()->attach($this->ownerA, ['role' => OrganizationRole::Owner]);
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => $this->orgB->role(DefaultRole::Owner)->id]);
     Sanctum::actingAs($this->ownerA);
 
     $id = $this->postJson('/api/tasks', ['title' => 'Where?', 'organization_id' => $this->orgB->id])->assertCreated()->json('data.id');
@@ -79,7 +79,7 @@ it('creates tasks in the current organization only', function () {
 });
 
 it('answers 409 before looking the task up, for a tab still on the previous organization', function () {
-    $this->orgB->members()->attach($this->ownerA, ['role' => OrganizationRole::Owner]);
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => $this->orgB->role(DefaultRole::Owner)->id]);
     $this->ownerA->forceFill(['current_organization_id' => $this->orgB->id])->save();
     Sanctum::actingAs($this->ownerA);
 

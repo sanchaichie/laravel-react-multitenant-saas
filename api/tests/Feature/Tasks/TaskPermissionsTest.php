@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Task;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
@@ -8,7 +8,7 @@ use Laravel\Sanctum\Sanctum;
 // The permission table of plan 07: role × (created by me, assigned to me, neither).
 
 beforeEach(function () {
-    [$this->owner, $this->organization] = userInOrganization(OrganizationRole::Owner);
+    [$this->owner, $this->organization] = userInOrganization(DefaultRole::Owner);
     $this->colleague = addMember($this->organization);
 });
 
@@ -26,24 +26,24 @@ function taskFor(User $user, string $relation): Task
     ]));
 }
 
-function actingWithRole(OrganizationRole $role): User
+function actingWithRole(DefaultRole $role): User
 {
-    $user = $role === OrganizationRole::Owner ? test()->owner : addMember(test()->organization, $role);
+    $user = $role === DefaultRole::Owner ? test()->owner : addMember(test()->organization, $role);
     Sanctum::actingAs($user);
 
     return $user;
 }
 
-it('lets every member list, see and create tasks', function (OrganizationRole $role) {
+it('lets every member list, see and create tasks', function (DefaultRole $role) {
     $user = actingWithRole($role);
     $task = taskFor($user, 'neither');
 
     $this->getJson('/api/tasks')->assertOk();
     $this->getJson("/api/tasks/{$task->id}")->assertOk();
     $this->postJson('/api/tasks', ['title' => 'New', 'assignee_id' => $this->colleague->id])->assertCreated();
-})->with(OrganizationRole::cases());
+})->with(DefaultRole::cases());
 
-it('edits per the table', function (OrganizationRole $role, string $relation, bool $allowed) {
+it('edits per the table', function (DefaultRole $role, string $relation, bool $allowed) {
     $user = actingWithRole($role);
     $task = taskFor($user, $relation);
 
@@ -52,14 +52,14 @@ it('edits per the table', function (OrganizationRole $role, string $relation, bo
 
     expect($task->fresh()->status->value)->toBe($allowed ? 'done' : 'todo');
 })->with([
-    'owner, anyone\'s' => [OrganizationRole::Owner, 'neither', true],
-    'admin, anyone\'s' => [OrganizationRole::Admin, 'neither', true],
-    'member, created' => [OrganizationRole::Member, 'created', true],
-    'member, assigned' => [OrganizationRole::Member, 'assigned', true],
-    'member, someone else\'s' => [OrganizationRole::Member, 'neither', false],
+    'owner, anyone\'s' => [DefaultRole::Owner, 'neither', true],
+    'admin, anyone\'s' => [DefaultRole::Admin, 'neither', true],
+    'member, created' => [DefaultRole::Member, 'created', true],
+    'member, assigned' => [DefaultRole::Member, 'assigned', true],
+    'member, someone else\'s' => [DefaultRole::Member, 'neither', false],
 ]);
 
-it('deletes per the table', function (OrganizationRole $role, string $relation, bool $allowed) {
+it('deletes per the table', function (DefaultRole $role, string $relation, bool $allowed) {
     $user = actingWithRole($role);
     $task = taskFor($user, $relation);
 
@@ -68,15 +68,15 @@ it('deletes per the table', function (OrganizationRole $role, string $relation, 
 
     expect(Task::withoutGlobalScopes()->find($task->id) === null)->toBe($allowed);
 })->with([
-    'owner, anyone\'s' => [OrganizationRole::Owner, 'neither', true],
-    'admin, anyone\'s' => [OrganizationRole::Admin, 'neither', true],
-    'member, created' => [OrganizationRole::Member, 'created', true],
-    'member, assigned' => [OrganizationRole::Member, 'assigned', false],
-    'member, someone else\'s' => [OrganizationRole::Member, 'neither', false],
+    'owner, anyone\'s' => [DefaultRole::Owner, 'neither', true],
+    'admin, anyone\'s' => [DefaultRole::Admin, 'neither', true],
+    'member, created' => [DefaultRole::Member, 'created', true],
+    'member, assigned' => [DefaultRole::Member, 'assigned', false],
+    'member, someone else\'s' => [DefaultRole::Member, 'neither', false],
 ]);
 
 it('keeps the creator\'s rights when the task is reassigned, and loses the old assignee\'s', function () {
-    $member = actingWithRole(OrganizationRole::Member);
+    $member = actingWithRole(DefaultRole::Member);
     $task = taskFor($member, 'assigned');
 
     $this->patchJson("/api/tasks/{$task->id}", ['assignee_id' => $this->colleague->id])->assertOk();

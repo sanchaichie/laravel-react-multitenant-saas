@@ -2,10 +2,11 @@
 
 namespace App\Actions\Organizations;
 
-use App\Enums\OrganizationRole;
+use App\Actions\Organizations\Concerns\LocksRole;
 use App\Mail\OrganizationInvitationMail;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class InviteMember
 {
+    use LocksRole;
+
     public function __construct(private readonly CurrentOrganization $currentOrganization) {}
 
     /**
@@ -26,8 +29,9 @@ class InviteMember
      * $organization must be the current organization: the invitation's
      * organization_id comes from it (BelongsToOrganization).
      */
-    public function handle(User $inviter, Organization $organization, string $email, OrganizationRole $role): OrganizationInvitation
+    public function handle(User $inviter, Organization $organization, string $email, Role $role): OrganizationInvitation
     {
+        $organization->role($role);
         $email = Str::lower(trim($email));
 
         if ($organization->members()->where('email', $email)->exists()) {
@@ -52,7 +56,7 @@ class InviteMember
         Mail::to($email)->queue(new OrganizationInvitationMail(
             organizationName: $organization->name,
             inviterName: $inviter->name,
-            roleName: $role->label(),
+            roleName: $role->name,
             url: config('app.frontend_url').'/join/'.$token,
             expiresAt: $invitation->expires_at->toDayDateTimeString().' UTC',
         ));
@@ -60,13 +64,16 @@ class InviteMember
         return $invitation->load('inviter');
     }
 
-    private function createInvitation(User $inviter, string $email, OrganizationRole $role, string $token): OrganizationInvitation
+    private function createInvitation(User $inviter, string $email, Role $role, string $token): OrganizationInvitation
     {
         return DB::transaction(function () use ($inviter, $email, $role, $token) {
-            $existing = OrganizationInvitation::pending()->where('email', $email)->lockForUpdate()->get();
+            // Before the invitation rows: see lockRole().
             $actor = $this->currentOrganization->role();
+            $role = $this->lockRole($role, 'role_id', $actor);
+            $existing = OrganizationInvitation::pending()->where('email', $email)->lockForUpdate()->get();
 
-            if ($existing->contains(fn (OrganizationInvitation $pending) => $actor === null || ! $actor->includes($pending->role))) {
+            // One whose role was deleted can be replaced by anyone who may invite.
+            if ($existing->contains(fn (OrganizationInvitation $pending) => $actor === null || ($pending->role !== null && ! $actor->includes($pending->role)))) {
                 throw ValidationException::withMessages([
                     'email' => 'This address already has a pending invitation for a role you can\'t give.',
                 ]);
@@ -76,7 +83,7 @@ class InviteMember
 
             return OrganizationInvitation::create([
                 'email' => $email,
-                'role' => $role,
+                'role_id' => $role->id,
                 'token_hash' => OrganizationInvitation::hashToken($token),
                 'invited_by' => $inviter->id,
                 'expires_at' => now()->addDays(OrganizationInvitation::LIFETIME_DAYS),

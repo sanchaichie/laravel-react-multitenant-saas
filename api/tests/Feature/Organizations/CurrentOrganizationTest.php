@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\CurrentOrganization;
@@ -11,17 +11,17 @@ beforeEach(function () {
     // A stand-in for the routes plans 06 and 07 put in the 'organization' group.
     Route::middleware(['api', 'auth:sanctum', 'organization'])->get('/api/test-current-organization', fn (CurrentOrganization $current) => [
         'id' => $current->id(),
-        'role' => $current->role()?->value,
+        'role' => $current->role()?->name,
     ]);
 });
 
 it('lets a member act in their current organization', function () {
-    [$user, $acme] = userInOrganization(OrganizationRole::Admin);
+    [$user, $acme] = userInOrganization(DefaultRole::Admin);
     Sanctum::actingAs($user);
 
     $this->getJson('/api/test-current-organization')
         ->assertOk()
-        ->assertExactJson(['id' => $acme->id, 'role' => 'admin']);
+        ->assertExactJson(['id' => $acme->id, 'role' => 'Admin']);
 });
 
 it('refuses with 403 when the user has no current organization', function () {
@@ -89,4 +89,17 @@ it('runs code in another organization and then restores the request\'s own', fun
     // Restored even when the code throws.
     expect(fn () => $current->run($other, fn () => throw new RuntimeException('boom')))->toThrow(RuntimeException::class);
     expect($current->id())->toBe($acme->id);
+});
+
+it('keeps each organization\'s roles apart in run(), and refuses another organization\'s role', function () {
+    [$user, $acme] = userInOrganization(DefaultRole::Owner, 'Acme');
+    [, $other] = userInOrganization(DefaultRole::Owner, 'Other');
+    Sanctum::actingAs($user);
+    $current = app(CurrentOrganization::class);
+
+    expect($current->roles()->pluck('organization_id')->unique()->all())->toBe([$acme->id])
+        ->and($current->run($other, fn () => $current->roles()->pluck('organization_id')->unique()->all()))->toBe([$other->id])
+        ->and($current->roles()->pluck('organization_id')->unique()->all())->toBe([$acme->id])
+        ->and($current->role()->organization_id)->toBe($acme->id)
+        ->and(fn () => $current->set($acme, $other->role(DefaultRole::Owner)))->toThrow(LogicException::class);
 });

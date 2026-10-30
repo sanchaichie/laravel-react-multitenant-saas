@@ -2,12 +2,13 @@
 
 namespace App\Http\Requests\Organizations;
 
-use App\Enums\OrganizationRole;
+use App\Http\Requests\Organizations\Concerns\ValidatesRoleId;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreInvitationRequest extends FormRequest
 {
+    use ValidatesRoleId;
+
     // Whether the role may be given is the policy's call (OrganizationInvitationPolicy::create).
     public function authorize(): bool
     {
@@ -21,12 +22,7 @@ class StoreInvitationRequest extends FormRequest
     {
         return [
             'email' => ['required', 'string', 'email', 'max:255'],
-            'role' => ['required', Rule::enum(OrganizationRole::class)],
+            'role_id' => $this->roleIdRules(),
         ];
-    }
-
-    public function role(): OrganizationRole
-    {
-        return OrganizationRole::from($this->validated('role'));
     }
 }

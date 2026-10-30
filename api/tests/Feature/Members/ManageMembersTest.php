@@ -1,18 +1,18 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use App\Models\Task;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    [$this->owner, $this->organization] = userInOrganization(OrganizationRole::Owner, 'Acme');
+    [$this->owner, $this->organization] = userInOrganization(DefaultRole::Owner, 'Acme');
 });
 
 it('lists the members by name with their role and when they joined', function () {
-    $zed = addMember($this->organization, OrganizationRole::Member, ['name' => 'Zed']);
-    $ana = addMember($this->organization, OrganizationRole::Admin, ['name' => 'Ana']);
+    $zed = addMember($this->organization, DefaultRole::Member, ['name' => 'Zed']);
+    $ana = addMember($this->organization, DefaultRole::Admin, ['name' => 'Ana']);
     $this->owner->update(['name' => 'Maya']);
     Sanctum::actingAs($this->owner);
 
@@ -20,7 +20,7 @@ it('lists the members by name with their role and when they joined', function ()
         ->assertOk()
         ->assertJsonCount(3, 'data')
         ->assertJsonPath('data.0.id', $ana->id)
-        ->assertJsonPath('data.0.role', 'admin')
+        ->assertJsonPath('data.0.role.name', 'Admin')
         ->assertJsonPath('data.1.id', $this->owner->id)
         ->assertJsonPath('data.1.is_me', true)
         ->assertJsonPath('data.2.id', $zed->id)
@@ -28,21 +28,21 @@ it('lists the members by name with their role and when they joined', function ()
 });
 
 it('changes a role', function () {
-    $ana = addMember($this->organization, OrganizationRole::Member);
+    $ana = addMember($this->organization, DefaultRole::Member);
     Sanctum::actingAs($this->owner);
 
-    $this->patchJson("/api/members/{$ana->id}", ['role' => 'admin'])
+    $this->patchJson("/api/members/{$ana->id}", ['role_id' => roleId(DefaultRole::Admin)])
         ->assertOk()
         ->assertJsonPath('data.id', $ana->id)
-        ->assertJsonPath('data.role', 'admin');
+        ->assertJsonPath('data.role.name', 'Admin');
 });
 
 it('validates the role', function (mixed $role) {
     $ana = addMember($this->organization);
     Sanctum::actingAs($this->owner);
 
-    $this->patchJson("/api/members/{$ana->id}", ['role' => $role])->assertUnprocessable()->assertJsonValidationErrors(['role']);
-})->with([null, 'boss']);
+    $this->patchJson("/api/members/{$ana->id}", ['role_id' => $role])->assertUnprocessable()->assertJsonValidationErrors(['role_id']);
+})->with([null, 'admin', 999999]);
 
 it('removes a member, who then can\'t act in the organization', function () {
     $ana = addMember($this->organization);
@@ -77,7 +77,7 @@ it('moves someone who leaves their current organization to another of theirs', f
 it('leaves someone\'s current organization alone when they are removed from another', function () {
     $ana = addMember($this->organization);
     [, $other] = userInOrganization(name: 'Other');
-    $other->members()->attach($ana, ['role' => OrganizationRole::Member]);
+    $other->members()->attach($ana, ['role_id' => $other->role(DefaultRole::Member)->id]);
     $ana->forceFill(['current_organization_id' => $other->id])->save();
     Sanctum::actingAs($this->owner);
 
@@ -90,7 +90,7 @@ it('answers 404 for someone who isn\'t a member', function () {
     [$stranger] = userInOrganization(name: 'Elsewhere');
     Sanctum::actingAs($this->owner);
 
-    $this->patchJson("/api/members/{$stranger->id}", ['role' => 'admin'])->assertNotFound();
+    $this->patchJson("/api/members/{$stranger->id}", ['role_id' => roleId(DefaultRole::Admin)])->assertNotFound();
     $this->deleteJson("/api/members/{$stranger->id}")->assertNotFound();
     $this->deleteJson('/api/members/99999999999999999999')->assertNotFound();
 });
@@ -104,8 +104,8 @@ it('needs a current organization and a login', function () {
 
 it('unassigns the tasks of someone who leaves or is removed, in that organization only', function () {
     $member = addMember($this->organization);
-    [, $other] = userInOrganization(OrganizationRole::Owner, 'Other');
-    $other->members()->attach($member, ['role' => OrganizationRole::Member]);
+    [, $other] = userInOrganization(DefaultRole::Owner, 'Other');
+    $other->members()->attach($member, ['role_id' => $other->role(DefaultRole::Member)->id]);
 
     [$here, $elsewhere] = [
         inOrganization($this->organization, fn () => Task::factory()->assignedTo($member)->create()),

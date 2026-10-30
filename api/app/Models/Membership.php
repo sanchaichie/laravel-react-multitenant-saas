@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Enums\OrganizationRole;
+use App\Models\Scopes\OrganizationScope;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 /**
@@ -13,9 +14,11 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
  * the current one, app(CurrentOrganization::class)->get()->members(), never with
  * an organization id from the request.
  *
+ * @property int $id
  * @property int $organization_id
  * @property int $user_id
- * @property OrganizationRole $role
+ * @property int $role_id
+ * @property-read Role $role
  */
 class Membership extends Pivot
 {
@@ -26,7 +29,19 @@ class Membership extends Pivot
     protected function casts(): array
     {
         return [
-            'role' => OrganizationRole::class,
+            'role_id' => 'integer',
         ];
+    }
+
+    /**
+     * Without the organization scope: this membership may be in another organization
+     * than the current one (the switcher lists them all), and the composite foreign
+     * key keeps its role in the membership's own organization.
+     *
+     * @return BelongsTo<Role, $this>
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class)->withoutGlobalScope(OrganizationScope::class);
     }
 }

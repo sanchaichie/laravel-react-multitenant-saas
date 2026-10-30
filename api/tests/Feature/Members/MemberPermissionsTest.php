@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Enums\Permission;
 use App\Models\OrganizationInvitation;
 use App\Models\User;
@@ -11,81 +11,85 @@ use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
     Mail::fake();
-    [$this->owner, $this->organization] = userInOrganization(OrganizationRole::Owner);
+    [$this->owner, $this->organization] = userInOrganization(DefaultRole::Owner);
 });
 
 /** A user acting with $role in the organization. */
-function actor(OrganizationRole $role): User
+function actor(DefaultRole $role): User
 {
-    $user = $role === OrganizationRole::Owner ? test()->owner : addMember(test()->organization, $role);
+    $user = $role === DefaultRole::Owner ? test()->owner : addMember(test()->organization, $role);
     Sanctum::actingAs($user);
 
     return $user;
 }
 
-it('maps roles to permissions, and knows which roles include which', function () {
-    expect(OrganizationRole::Owner->grants())->toBe(Permission::cases())
-        ->and(OrganizationRole::Admin->grants())->toBe([Permission::MembersInvite, Permission::MembersManage, Permission::TasksManage])
-        ->and(OrganizationRole::Member->grants())->toBe([])
-        ->and(OrganizationRole::Owner->includes(OrganizationRole::Admin))->toBeTrue()
-        ->and(OrganizationRole::Admin->includes(OrganizationRole::Admin))->toBeTrue()
-        ->and(OrganizationRole::Admin->includes(OrganizationRole::Owner))->toBeFalse()
-        ->and(OrganizationRole::Member->includes(OrganizationRole::Admin))->toBeFalse()
-        ->and(OrganizationRole::Member->includes(OrganizationRole::Member))->toBeTrue();
+it('gives new organizations the default roles, and knows which roles include which', function () {
+    [$owner, $admin, $member] = array_map(fn (DefaultRole $role) => $this->organization->role($role), DefaultRole::cases());
+
+    expect($owner->grants()->all())->toBe(Permission::cases())
+        ->and($admin->grants()->all())->toBe([Permission::TasksCreate, Permission::TasksManage, Permission::MembersInvite, Permission::MembersManage])
+        ->and($member->grants()->all())->toBe([Permission::TasksCreate])
+        ->and($owner->includes($admin))->toBeTrue()
+        ->and($admin->includes($admin))->toBeTrue()
+        ->and($admin->includesStrictly($admin))->toBeFalse()
+        ->and($admin->includesStrictly($member))->toBeTrue()
+        ->and($admin->includes($owner))->toBeFalse()
+        ->and($member->includes($admin))->toBeFalse()
+        ->and($member->includes($member))->toBeTrue();
 });
 
-it('lets every member see the members', function (OrganizationRole $role) {
+it('lets every member see the members', function (DefaultRole $role) {
     actor($role);
 
     $this->getJson('/api/members')->assertOk();
-})->with(OrganizationRole::cases());
+})->with(DefaultRole::cases());
 
-it('shows and revokes pending invitations only with members.invite', function (OrganizationRole $role, bool $allowed) {
+it('shows and revokes pending invitations only with members.invite', function (DefaultRole $role, bool $allowed) {
     [$invitation] = createInvitation($this->organization, 'new@example.com');
     actor($role);
 
     $this->getJson('/api/invitations')->assertStatus($allowed ? 200 : 403);
     $this->deleteJson("/api/invitations/{$invitation->id}")->assertStatus($allowed ? 204 : 403);
 })->with([
-    'owner' => [OrganizationRole::Owner, true],
-    'admin' => [OrganizationRole::Admin, true],
-    'member' => [OrganizationRole::Member, false],
+    'owner' => [DefaultRole::Owner, true],
+    'admin' => [DefaultRole::Admin, true],
+    'member' => [DefaultRole::Member, false],
 ]);
 
-it('invites only with roles the inviter includes', function (OrganizationRole $actorRole, OrganizationRole $invitedAs, bool $allowed) {
+it('invites only with roles the inviter includes', function (DefaultRole $actorRole, DefaultRole $invitedAs, bool $allowed) {
     actor($actorRole);
 
-    $this->postJson('/api/invitations', ['email' => 'new@example.com', 'role' => $invitedAs->value])
+    $this->postJson('/api/invitations', ['email' => 'new@example.com', 'role_id' => roleId($invitedAs)])
         ->assertStatus($allowed ? 201 : 403);
 
     expect(OrganizationInvitation::withoutGlobalScopes()->count())->toBe($allowed ? 1 : 0);
 })->with([
-    'owner invites owner' => [OrganizationRole::Owner, OrganizationRole::Owner, true],
-    'owner invites admin' => [OrganizationRole::Owner, OrganizationRole::Admin, true],
-    'admin invites admin' => [OrganizationRole::Admin, OrganizationRole::Admin, true],
-    'admin invites member' => [OrganizationRole::Admin, OrganizationRole::Member, true],
-    'admin invites owner' => [OrganizationRole::Admin, OrganizationRole::Owner, false],
-    'member invites member' => [OrganizationRole::Member, OrganizationRole::Member, false],
+    'owner invites owner' => [DefaultRole::Owner, DefaultRole::Owner, true],
+    'owner invites admin' => [DefaultRole::Owner, DefaultRole::Admin, true],
+    'admin invites admin' => [DefaultRole::Admin, DefaultRole::Admin, true],
+    'admin invites member' => [DefaultRole::Admin, DefaultRole::Member, true],
+    'admin invites owner' => [DefaultRole::Admin, DefaultRole::Owner, false],
+    'member invites member' => [DefaultRole::Member, DefaultRole::Member, false],
 ]);
 
-it('changes roles only between roles the actor includes', function (OrganizationRole $actorRole, OrganizationRole $targetRole, OrganizationRole $newRole, bool $allowed) {
+it('changes roles only between roles the actor includes', function (DefaultRole $actorRole, DefaultRole $targetRole, DefaultRole $newRole, bool $allowed) {
     actor($actorRole);
     $target = addMember($this->organization, $targetRole);
 
-    $this->patchJson("/api/members/{$target->id}", ['role' => $newRole->value])->assertStatus($allowed ? 200 : 403);
+    $this->patchJson("/api/members/{$target->id}", ['role_id' => roleId($newRole)])->assertStatus($allowed ? 200 : 403);
 
-    expect($this->organization->members()->findOrFail($target->id)->membership->role)->toBe($allowed ? $newRole : $targetRole);
+    expect($this->organization->members()->findOrFail($target->id)->membership->role->name)->toBe(($allowed ? $newRole : $targetRole)->label());
 })->with([
-    'owner: admin → owner' => [OrganizationRole::Owner, OrganizationRole::Admin, OrganizationRole::Owner, true],
-    'owner: owner → member' => [OrganizationRole::Owner, OrganizationRole::Owner, OrganizationRole::Member, true],
-    'admin: member → admin' => [OrganizationRole::Admin, OrganizationRole::Member, OrganizationRole::Admin, true],
-    'admin: admin → member' => [OrganizationRole::Admin, OrganizationRole::Admin, OrganizationRole::Member, true],
-    'admin: member → owner' => [OrganizationRole::Admin, OrganizationRole::Member, OrganizationRole::Owner, false],
-    'admin: owner → member' => [OrganizationRole::Admin, OrganizationRole::Owner, OrganizationRole::Member, false],
-    'member: member → admin' => [OrganizationRole::Member, OrganizationRole::Member, OrganizationRole::Admin, false],
+    'owner: admin → owner' => [DefaultRole::Owner, DefaultRole::Admin, DefaultRole::Owner, true],
+    'owner: owner → member' => [DefaultRole::Owner, DefaultRole::Owner, DefaultRole::Member, true],
+    'admin: member → admin' => [DefaultRole::Admin, DefaultRole::Member, DefaultRole::Admin, true],
+    'admin: admin → member' => [DefaultRole::Admin, DefaultRole::Admin, DefaultRole::Member, true],
+    'admin: member → owner' => [DefaultRole::Admin, DefaultRole::Member, DefaultRole::Owner, false],
+    'admin: owner → member' => [DefaultRole::Admin, DefaultRole::Owner, DefaultRole::Member, false],
+    'member: member → admin' => [DefaultRole::Member, DefaultRole::Member, DefaultRole::Admin, false],
 ]);
 
-it('removes others only when the actor includes their role', function (OrganizationRole $actorRole, OrganizationRole $targetRole, bool $allowed) {
+it('removes others only when the actor includes their role', function (DefaultRole $actorRole, DefaultRole $targetRole, bool $allowed) {
     actor($actorRole);
     $target = addMember($this->organization, $targetRole);
 
@@ -93,32 +97,32 @@ it('removes others only when the actor includes their role', function (Organizat
 
     expect($target->isMemberOf($this->organization))->toBe(! $allowed);
 })->with([
-    'owner removes owner' => [OrganizationRole::Owner, OrganizationRole::Owner, true],
-    'owner removes admin' => [OrganizationRole::Owner, OrganizationRole::Admin, true],
-    'admin removes admin' => [OrganizationRole::Admin, OrganizationRole::Admin, true],
-    'admin removes member' => [OrganizationRole::Admin, OrganizationRole::Member, true],
-    'admin removes owner' => [OrganizationRole::Admin, OrganizationRole::Owner, false],
-    'member removes member' => [OrganizationRole::Member, OrganizationRole::Member, false],
+    'owner removes owner' => [DefaultRole::Owner, DefaultRole::Owner, true],
+    'owner removes admin' => [DefaultRole::Owner, DefaultRole::Admin, true],
+    'admin removes admin' => [DefaultRole::Admin, DefaultRole::Admin, true],
+    'admin removes member' => [DefaultRole::Admin, DefaultRole::Member, true],
+    'admin removes owner' => [DefaultRole::Admin, DefaultRole::Owner, false],
+    'member removes member' => [DefaultRole::Member, DefaultRole::Member, false],
 ]);
 
-it('lets anyone leave', function (OrganizationRole $role) {
-    $user = actor($role === OrganizationRole::Owner ? OrganizationRole::Admin : $role);
+it('lets anyone leave', function (DefaultRole $role) {
+    $user = actor($role === DefaultRole::Owner ? DefaultRole::Admin : $role);
 
     $this->deleteJson("/api/members/{$user->id}")->assertNoContent();
 
     expect($user->isMemberOf($this->organization))->toBeFalse();
-})->with([OrganizationRole::Admin, OrganizationRole::Member]);
+})->with([DefaultRole::Admin, DefaultRole::Member]);
 
 it('tells the app what each member\'s row allows', function () {
-    $admin = actor(OrganizationRole::Admin);
-    $member = addMember($this->organization, OrganizationRole::Member);
+    $admin = actor(DefaultRole::Admin);
+    $member = addMember($this->organization, DefaultRole::Member);
 
     $rows = collect($this->getJson('/api/members')->assertOk()->json('data'))->keyBy('id');
 
     expect($rows[$this->owner->id]['can'])->toBe(['update' => false, 'delete' => false])
         ->and($rows[$this->owner->id]['assignable_roles'])->toBe([])
         ->and($rows[$member->id]['can'])->toBe(['update' => true, 'delete' => true])
-        ->and($rows[$member->id]['assignable_roles'])->toBe(['admin'])
+        ->and(array_column($rows[$member->id]['assignable_roles'], 'name'))->toBe(['Admin'])
         ->and($rows[$admin->id]['is_me'])->toBeTrue()
         ->and($rows[$admin->id]['can']['delete'])->toBeTrue(); // leaving
 });
@@ -126,9 +130,9 @@ it('tells the app what each member\'s row allows', function () {
 it('keeps at least one owner', function () {
     Sanctum::actingAs($this->owner);
 
-    $this->patchJson("/api/members/{$this->owner->id}", ['role' => 'admin'])
+    $this->patchJson("/api/members/{$this->owner->id}", ['role_id' => roleId(DefaultRole::Admin)])
         ->assertUnprocessable()
-        ->assertJsonPath('errors.role.0', 'An organization needs at least one owner. Make someone else an owner first.');
+        ->assertJsonPath('errors.role_id.0', 'An organization needs at least one owner. Make someone else an owner first.');
     $this->deleteJson("/api/members/{$this->owner->id}")
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['member']);
@@ -137,10 +141,10 @@ it('keeps at least one owner', function () {
 });
 
 it('lets an owner step down once there is another owner', function () {
-    $other = addMember($this->organization, OrganizationRole::Owner);
+    $other = addMember($this->organization, DefaultRole::Owner);
     Sanctum::actingAs($this->owner);
 
-    $this->patchJson("/api/members/{$this->owner->id}", ['role' => 'admin'])->assertOk()->assertJsonPath('data.role', 'admin');
+    $this->patchJson("/api/members/{$this->owner->id}", ['role_id' => roleId(DefaultRole::Admin)])->assertOk()->assertJsonPath('data.role.name', 'Admin');
 
     // Now the other owner is the last one.
     Sanctum::actingAs($other);

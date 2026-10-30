@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Http\Requests\Organizations\StoreOrganizationRequest;
 use App\Models\Organization;
 use Laravel\Sanctum\Sanctum;
@@ -12,13 +12,13 @@ it('creates an organization owned by the user and switches to it', function () {
     $response = $this->postJson('/api/organizations', ['name' => '  New Co  '])
         ->assertCreated()
         ->assertJsonPath('data.name', 'New Co')
-        ->assertJsonPath('data.role', 'owner');
+        ->assertJsonPath('data.role.name', 'Owner');
 
     $organization = Organization::findOrFail($response->json('data.id'));
 
     expect($user->fresh()->current_organization_id)->toBe($organization->id)
         ->and($organization->members()->sole()->is($user))->toBeTrue()
-        ->and($organization->members()->sole()->membership->role)->toBe(OrganizationRole::Owner);
+        ->and($organization->members()->sole()->membership->role->name)->toBe(DefaultRole::Owner->label());
 
     $this->getJson('/api/me')->assertJsonPath('data.current_organization.id', $organization->id);
 });
@@ -55,10 +55,10 @@ it('limits how many requests a user can make in a minute', function () {
 it('limits how many organizations a user can own', function () {
     [$user] = userInOrganization();
     foreach (range(2, StoreOrganizationRequest::MAX_OWNED) as $i) {
-        Organization::factory()->withMember($user, OrganizationRole::Owner)->create();
+        Organization::factory()->withMember($user, DefaultRole::Owner)->create();
     }
     // Being a member (not the owner) elsewhere doesn't count.
-    Organization::factory()->withMember($user, OrganizationRole::Member)->create();
+    Organization::factory()->withMember($user, DefaultRole::Member)->create();
     Sanctum::actingAs($user);
 
     $this->postJson('/api/organizations', ['name' => 'One too many'])

@@ -1,6 +1,7 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
+use App\Enums\Permission;
 use App\Mail\OrganizationInvitationMail;
 use App\Models\OrganizationInvitation;
 use App\Models\User;
@@ -9,16 +10,16 @@ use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
     Mail::fake();
-    [$this->owner, $this->organization] = userInOrganization(OrganizationRole::Owner, 'Acme');
+    [$this->owner, $this->organization] = userInOrganization(DefaultRole::Owner, 'Acme');
     $this->owner->update(['name' => 'Maya']);
     Sanctum::actingAs($this->owner);
 });
 
 it('invites by email, stores only a hash of the token and queues the email with a working link', function () {
-    $this->postJson('/api/invitations', ['email' => ' Ana@Example.com ', 'role' => 'admin'])
+    $this->postJson('/api/invitations', ['email' => ' Ana@Example.com ', 'role_id' => roleId(DefaultRole::Admin)])
         ->assertCreated()
         ->assertJsonPath('data.email', 'ana@example.com')
-        ->assertJsonPath('data.role', 'admin')
+        ->assertJsonPath('data.role.name', 'Admin')
         ->assertJsonPath('data.invited_by', 'Maya')
         ->assertJsonMissingPath('data.token')
         ->assertJsonMissingPath('data.token_hash');
@@ -43,29 +44,29 @@ it('invites by email, stores only a hash of the token and queues the email with 
 it('replaces a pending invitation to the same address', function () {
     [$old, $oldToken] = createInvitation($this->organization, 'ana@example.com');
 
-    $this->postJson('/api/invitations', ['email' => 'ana@example.com', 'role' => 'admin'])->assertCreated();
+    $this->postJson('/api/invitations', ['email' => 'ana@example.com', 'role_id' => roleId(DefaultRole::Admin)])->assertCreated();
 
     $pending = OrganizationInvitation::withoutGlobalScopes()->sole();
     expect($pending->id)->not->toBe($old->id)
-        ->and($pending->role)->toBe(OrganizationRole::Admin)
+        ->and($pending->role->name)->toBe(DefaultRole::Admin->label())
         ->and(OrganizationInvitation::findByToken($oldToken))->toBeNull();
 });
 
 it('won\'t replace an invitation for a role the inviter can\'t give', function () {
-    createInvitation($this->organization, 'ana@example.com', OrganizationRole::Owner);
-    Sanctum::actingAs(addMember($this->organization, OrganizationRole::Admin));
+    createInvitation($this->organization, 'ana@example.com', DefaultRole::Owner);
+    Sanctum::actingAs(addMember($this->organization, DefaultRole::Admin));
 
-    $this->postJson('/api/invitations', ['email' => 'ana@example.com', 'role' => 'member'])
+    $this->postJson('/api/invitations', ['email' => 'ana@example.com', 'role_id' => roleId(DefaultRole::Member)])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['email']);
 
-    expect(OrganizationInvitation::withoutGlobalScopes()->sole()->role)->toBe(OrganizationRole::Owner);
+    expect(OrganizationInvitation::withoutGlobalScopes()->sole()->role->name)->toBe(DefaultRole::Owner->label());
 });
 
 it('refuses to invite someone who is already a member', function () {
     addMember($this->organization, attributes: ['email' => 'ana@example.com']);
 
-    $this->postJson('/api/invitations', ['email' => 'ANA@example.com', 'role' => 'member'])
+    $this->postJson('/api/invitations', ['email' => 'ANA@example.com', 'role_id' => roleId(DefaultRole::Member)])
         ->assertUnprocessable()
         ->assertJsonPath('errors.email.0', 'This person is already a member of the organization.');
 
@@ -75,16 +76,17 @@ it('refuses to invite someone who is already a member', function () {
 it('validates email and role', function (array $body, string $field) {
     $this->postJson('/api/invitations', $body)->assertUnprocessable()->assertJsonValidationErrors([$field]);
 })->with([
-    'no email' => [['role' => 'member'], 'email'],
-    'bad email' => [['email' => 'nope', 'role' => 'member'], 'email'],
-    'no role' => [['email' => 'ana@example.com'], 'role'],
-    'unknown role' => [['email' => 'ana@example.com', 'role' => 'boss'], 'role'],
+    'no email' => [['role_id' => 1], 'email'],
+    'bad email' => [['email' => 'nope', 'role_id' => 1], 'email'],
+    'no role' => [['email' => 'ana@example.com'], 'role_id'],
+    'unknown role' => [['email' => 'ana@example.com', 'role_id' => 999999], 'role_id'],
+    'role name instead of id' => [['email' => 'ana@example.com', 'role_id' => 'member'], 'role_id'],
 ]);
 
 it('needs a verified email to invite', function () {
-    Sanctum::actingAs(addMember($this->organization, OrganizationRole::Admin, ['email_verified_at' => null]));
+    Sanctum::actingAs(addMember($this->organization, DefaultRole::Admin, ['email_verified_at' => null]));
 
-    $this->postJson('/api/invitations', ['email' => 'ana@example.com', 'role' => 'member'])
+    $this->postJson('/api/invitations', ['email' => 'ana@example.com', 'role_id' => roleId(DefaultRole::Member)])
         ->assertForbidden()
         ->assertJsonPath('code', 'email_unverified');
 
@@ -93,10 +95,10 @@ it('needs a verified email to invite', function () {
 
 it('limits invitations to 20 a minute per user', function () {
     foreach (range(1, 20) as $i) {
-        $this->postJson('/api/invitations', ['email' => "person{$i}@example.com", 'role' => 'member'])->assertCreated();
+        $this->postJson('/api/invitations', ['email' => "person{$i}@example.com", 'role_id' => roleId(DefaultRole::Member)])->assertCreated();
     }
 
-    $this->postJson('/api/invitations', ['email' => 'one-more@example.com', 'role' => 'member'])->assertTooManyRequests();
+    $this->postJson('/api/invitations', ['email' => 'one-more@example.com', 'role_id' => roleId(DefaultRole::Member)])->assertTooManyRequests();
 });
 
 it('lists pending invitations, newest first, without accepted ones', function () {
@@ -121,13 +123,19 @@ it('revokes an invitation, after which its link no longer works', function () {
     $this->getJson("/api/join/{$token}")->assertNotFound();
 });
 
-it('tells the form which roles the requesting user may invite with', function (OrganizationRole $role, array $invitable) {
-    Sanctum::actingAs($role === OrganizationRole::Owner ? $this->owner : addMember($this->organization, $role));
+it('tells the form which roles the requesting user may invite with', function (DefaultRole $role, array $invitable) {
+    Sanctum::actingAs($role === DefaultRole::Owner ? $this->owner : addMember($this->organization, $role));
 
-    $this->getJson('/api/invitations')->assertOk()->assertJsonPath('meta.invitable_roles', $invitable);
+    $meta = $this->getJson('/api/invitations')->assertOk()->json('meta');
+    $roles = $meta['invitable_roles'];
+
+    expect(array_column($roles, 'name'))->toBe($invitable)
+        // The form starts on the least powerful one: Member (tasks.create only).
+        ->and($meta['default_role_id'])->toBe(roleId(DefaultRole::Member))
+        ->and($roles[0])->toHaveKeys(['id', 'name', 'is_owner']);
 })->with([
-    'owner' => [OrganizationRole::Owner, ['owner', 'admin', 'member']],
-    'admin' => [OrganizationRole::Admin, ['admin', 'member']],
+    'owner' => [DefaultRole::Owner, ['Owner', 'Admin', 'Member']],
+    'admin' => [DefaultRole::Admin, ['Admin', 'Member']],
 ]);
 
 it('renders names in the email as text, never as Markdown links', function () {
@@ -157,4 +165,12 @@ it('prunes invitations accepted or expired over 30 days ago, in every organizati
     expect($left)->toContain($fresh->id, $recentlyExpired->id)
         ->not->toContain($oldExpired->id)
         ->not->toContain($oldAccepted->id);
+});
+
+it('starts the invite form on the role with the fewest permissions, whatever its name', function () {
+    $this->organization->role(DefaultRole::Member)->update(['name' => 'Contributor']);
+    $viewer = createRole($this->organization, 'Viewer');
+    createRole($this->organization, 'Project lead', [Permission::TasksManage, Permission::MembersInvite]);
+
+    $this->getJson('/api/invitations')->assertOk()->assertJsonPath('meta.default_role_id', $viewer->id);
 });

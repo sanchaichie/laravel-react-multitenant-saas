@@ -2,8 +2,9 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\OrganizationRole;
+use App\Models\Role;
 use App\Models\User;
+use App\Support\CurrentOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
@@ -25,22 +26,25 @@ class MemberResource extends JsonResource
         $membership = $this->membership;
         $gate = Gate::forUser($request->user());
 
+        // The organization's roles are loaded once per request: no query per member.
+        $roles = app(CurrentOrganization::class)->roles();
+        $membership->setRelation('role', $roles->find($membership->role_id) ?? $membership->role);
+
         // The roles this member may be changed to by the requesting user.
-        $assignable = array_values(array_filter(
-            OrganizationRole::cases(),
-            fn (OrganizationRole $role) => $role !== $membership->role && $gate->allows('update', [$membership, $role]),
-        ));
+        $assignable = $roles->filter(
+            fn (Role $role) => $role->id !== $membership->role_id && $gate->allows('update', [$membership, $role]),
+        )->values();
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'role' => $membership->role->value,
+            'role' => new RoleSummaryResource($membership->role),
             'joined_at' => $membership->created_at,
             'is_me' => $this->id === $request->user()->id,
-            'assignable_roles' => array_map(fn (OrganizationRole $role) => $role->value, $assignable),
+            'assignable_roles' => RoleSummaryResource::collection($assignable),
             'can' => [
-                'update' => $assignable !== [],
+                'update' => $assignable->isNotEmpty(),
                 'delete' => $gate->allows('delete', $membership),
             ],
         ];

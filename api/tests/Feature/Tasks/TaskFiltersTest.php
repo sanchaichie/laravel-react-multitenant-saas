@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Models\Task;
@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    [$this->owner, $this->organization] = userInOrganization(OrganizationRole::Owner);
+    [$this->owner, $this->organization] = userInOrganization(DefaultRole::Owner);
     $this->member = addMember($this->organization);
     Sanctum::actingAs($this->owner);
 });

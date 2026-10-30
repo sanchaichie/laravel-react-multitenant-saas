@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use App\Enums\OrganizationRole;
 use App\Enums\Permission;
 use App\Models\Membership;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 
@@ -26,7 +26,7 @@ class MembershipPolicy
      * Change a member's role: only roles you include, on both sides (an admin
      * can't touch an owner, or make one).
      */
-    public function update(User $user, Membership $membership, OrganizationRole $newRole): bool
+    public function update(User $user, Membership $membership, Role $newRole): bool
     {
         $actor = $this->currentOrganization->role();
 

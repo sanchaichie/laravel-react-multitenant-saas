@@ -2,12 +2,14 @@
 
 namespace App\Support;
 
-use App\Enums\OrganizationRole;
 use App\Enums\Permission;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
+use Illuminate\Database\Eloquent\Collection;
+use LogicException;
 
 /**
  * The organization the current request (or job) acts in.
@@ -22,7 +24,10 @@ class CurrentOrganization
 
     private ?Organization $organization = null;
 
-    private ?OrganizationRole $role = null;
+    private ?Role $role = null;
+
+    /** @var Collection<int, Role>|null */
+    private ?Collection $roles = null;
 
     public function __construct(private readonly AuthFactory $auth) {}
 
@@ -38,7 +43,11 @@ class CurrentOrganization
         return $this->get()?->getKey();
     }
 
-    public function role(): ?OrganizationRole
+    /**
+     * The user's role here (null without a current organization, or in a job run
+     * without one).
+     */
+    public function role(): ?Role
     {
         $this->resolve();
 
@@ -54,6 +63,21 @@ class CurrentOrganization
     }
 
     /**
+     * Every role of the organization (Owner first, then in creation order), loaded
+     * once per request: member and invitation lists check each against the policy.
+     *
+     * @return Collection<int, Role>
+     */
+    public function roles(): Collection
+    {
+        if ($this->get() === null) {
+            return new Collection;
+        }
+
+        return $this->roles ??= Role::query()->orderByDesc('is_owner')->orderBy('id')->get();
+    }
+
+    /**
      * Run code acting in an organization, then go back to what was current before
      * (even if it throws). Use this in jobs and listeners: a job run inline (the
      * sync queue, or called during a request) shares the request's instance, and a
@@ -65,15 +89,15 @@ class CurrentOrganization
      * @param  Closure(): T  $callback
      * @return T
      */
-    public function run(Organization $organization, Closure $callback, ?OrganizationRole $role = null): mixed
+    public function run(Organization $organization, Closure $callback, ?Role $role = null): mixed
     {
-        $previous = [$this->resolved, $this->organization, $this->role];
+        $previous = [$this->resolved, $this->organization, $this->role, $this->roles];
         $this->set($organization, $role);
 
         try {
             return $callback();
         } finally {
-            [$this->resolved, $this->organization, $this->role] = $previous;
+            [$this->resolved, $this->organization, $this->role, $this->roles] = $previous;
         }
     }
 
@@ -81,10 +105,15 @@ class CurrentOrganization
      * Act in an organization explicitly, e.g. in a test. Prefer run(), which
      * restores the previous state. The caller is responsible for having checked access.
      */
-    public function set(Organization $organization, ?OrganizationRole $role = null): void
+    public function set(Organization $organization, ?Role $role = null): void
     {
+        if ($role !== null && $role->organization_id !== $organization->id) {
+            throw new LogicException('That role belongs to another organization.');
+        }
+
         $this->organization = $organization;
         $this->role = $role;
+        $this->roles = null;
         $this->resolved = true;
     }
 
@@ -95,6 +124,7 @@ class CurrentOrganization
     {
         $this->organization = null;
         $this->role = null;
+        $this->roles = null;
         $this->resolved = false;
     }
 

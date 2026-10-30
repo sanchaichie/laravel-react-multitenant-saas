@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use App\Enums\OrganizationRole;
 use App\Enums\Permission;
 use App\Models\OrganizationInvitation;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 
@@ -24,17 +24,20 @@ class OrganizationInvitationPolicy
     /**
      * Invite with a role: only roles you include (an admin can't invite an owner).
      */
-    public function create(User $user, OrganizationRole $role): bool
+    public function create(User $user, Role $role): bool
     {
         $actor = $this->currentOrganization->role();
 
         return $actor !== null && $actor->can(Permission::MembersInvite) && $actor->includes($role);
     }
 
+    // One whose role was deleted can't be accepted any more: anyone who invites may clear it.
     public function delete(User $user, OrganizationInvitation $invitation): bool
     {
         $actor = $this->currentOrganization->role();
 
-        return $actor !== null && $actor->can(Permission::MembersInvite) && $actor->includes($invitation->role);
+        return $actor !== null
+            && $actor->can(Permission::MembersInvite)
+            && ($invitation->role === null || $actor->includes($invitation->role));
     }
 }

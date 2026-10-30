@@ -9,7 +9,7 @@ A multi-organization SaaS starter with a Laravel API and a React app, being rebu
 - **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
 
 ## Status
-You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
+You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
 
 ## Requirements
 PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
@@ -71,10 +71,10 @@ The API answers on `http://localhost:8100/api`:
 | `POST /api/organizations/{id}/switch` | Make one of yours current (404 if you're not a member) |
 | `POST /api/email/verify/{id}/{hash}` | The signed link from the verification email (the app posts it); `POST /api/email/verification-notification` sends a new one |
 | `GET /api/members` | Members of the current organization, with what you may do to each (`can`, `assignable_roles`) |
-| `PATCH /api/members/{id}` | Change a role (`role`) |
+| `PATCH /api/members/{id}` | Change a role (`role_id`: one of the organization's roles) |
 | `DELETE /api/members/{id}` | Remove someone, or leave (your own id) |
 | `GET /api/invitations` | Pending invitations of the current organization |
-| `POST /api/invitations` | Invite (`email`, `role`); needs a verified email. Emails a 7-day link to `/join/{token}` |
+| `POST /api/invitations` | Invite (`email`, `role_id`); needs a verified email. Emails a 7-day link to `/join/{token}` |
 | `DELETE /api/invitations/{id}` | Revoke |
 | `GET /api/join/{token}` / `POST /api/join/{token}` | See and accept an invitation (logged in as the invited address) |
 | `GET /api/tasks` | Tasks of the current organization, 20 a page. Filters: `status`, `priority`, `assignee` (an id, `me` or `none`), `overdue=1`, `search`; `sort` = `newest`, `due` or `priority`; `page` |
@@ -82,8 +82,13 @@ The API answers on `http://localhost:8100/api`:
 | `GET /api/tasks/{id}` | One task, with what you may do (`can`) and `is_overdue` |
 | `PATCH /api/tasks/{id}` | Change any of the fields above |
 | `DELETE /api/tasks/{id}` | Delete |
+| `GET /api/roles` | The organization's roles (Owner first) with their permissions, member counts and what you may do (`can`) |
+| `POST /api/roles` | Create (`name`, `permissions`: a list from the catalogue); needs `roles.manage`, and only permissions you have |
+| `PATCH /api/roles/{id}` | Rename or change permissions (the whole list); only roles that can do strictly less than yours, never Owner |
+| `DELETE /api/roles/{id}` | Delete a role nobody has; its pending invitations stop working |
+| `GET /api/permissions` | The permission catalogue (`value`, `label`, `group`) |
 
-Organization-scoped routes (members, invitations, tasks) act on your current organization: there's never an organization id in the URL.
+Organization-scoped routes (members, invitations, tasks, roles) act on your current organization: there's never an organization id in the URL.
 
 Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email.
 
@@ -110,6 +115,8 @@ GitHub Actions runs all of these on every push to `main` and every pull request 
 | **Invitation link**: accept to join | **Verify your email** banner, with Resend |
 | ![Tasks](docs/screenshots/tasks.png) | ![A task](docs/screenshots/task-detail.png) |
 | **Tasks**: filter by status, priority, assignee and overdue, search and sort (all in the URL) | **A task**: change its status in place, edit or delete it per your permissions |
+| ![Roles](docs/screenshots/roles.png) | ![Edit a role](docs/screenshots/role-edit.png) |
+| **Roles**: what each role allows, and how many have it | **Edit a role**: permissions grouped by area |
 
 ## Working with Claude Code
 The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.

@@ -2,7 +2,8 @@
 
 namespace App\Http\Requests\Organizations;
 
-use App\Enums\OrganizationRole;
+use App\Models\Role;
+use App\Models\Scopes\OrganizationScope;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -34,7 +35,10 @@ class StoreOrganizationRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                $owned = $this->user()->organizations()->wherePivot('role', OrganizationRole::Owner)->count();
+                // The owner roles of any organization: this counts the user's own, wherever they act now.
+                $owned = $this->user()->organizations()
+                    ->whereIn('organization_user.role_id', Role::withoutGlobalScope(OrganizationScope::class)->where('is_owner', true)->select('id'))
+                    ->count();
 
                 if ($owned >= self::MAX_OWNED) {
                     $validator->errors()->add('name', 'You can own at most '.self::MAX_OWNED.' organizations.');
