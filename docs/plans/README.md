@@ -19,7 +19,7 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 07 | [Tasks (status, assignee, due date, priority, filters)](07-tasks.md) | Done | 05, 07 |
 | 08 | [Custom roles and permissions](08-custom-roles.md) | Done | 10 |
 | 09 | [Audit trail](09-audit-trail.md) | Done | 11 |
-| 10 | AI layer and task summaries | Not planned yet | 09, 14 |
+| 10 | [AI layer and task summaries](10-ai-layer-task-summaries.md) | Done | 09, 14 |
 | 11 | AI usage, budget and `ai.use` | Not planned yet | 13 |
 | 12 | Streaming and AI writing help | Not planned yet | 15 |
 | 13 | Task chat | Not planned yet | 16 |
