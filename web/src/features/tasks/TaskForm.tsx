@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
@@ -9,11 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { useMembers } from '@/features/members/api'
+import { useCan } from '@/hooks/useCan'
 import { applyFieldErrors, errorMessage } from '@/lib/apiErrors'
 import { describedBy } from '@/lib/aria'
 import type { Task, TaskPayload } from '@/types/api'
+import { useAuth } from '@/stores/auth'
 import { useCreateTask, useUpdateTask } from './api'
 import { TASK_PRIORITIES, TASK_STATUSES, priorityLabel, statusLabel } from './filters'
+import { TaskWritingHelp } from './TaskWritingHelp'
 
 const UNASSIGNED = 'none'
 
@@ -73,6 +76,15 @@ export function TaskForm({ task, onSaved, onCancel }: TaskFormProps) {
 
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: toValues(task) })
   const { errors } = form.formState
+  // What writing help rewrites: the fields as typed now, not the saved task.
+  const [title, description] = useWatch({ control: form.control, name: ['title', 'description'] })
+
+  // Editing: the server says (can.write_with_ai). Creating: AI use and creating tasks,
+  // from a verified email, as the API will check.
+  const canUseAi = useCan('ai.use')
+  const canCreate = useCan('tasks.create')
+  const verified = useAuth((s) => s.user?.email_verified ?? false)
+  const writingHelp = task ? task.can.write_with_ai : canUseAi && canCreate && verified
 
   // The current assignee stays choosable even if they're not in the list (yet).
   const assignees = members.data?.data ?? []
@@ -135,6 +147,18 @@ export function TaskForm({ task, onSaved, onCancel }: TaskFormProps) {
             {...form.register('description')}
           />
           <FieldError id="task-description-error" errors={[errors.description]} />
+          {writingHelp && (
+            <TaskWritingHelp
+              task={task}
+              title={title}
+              description={description}
+              onAccept={(text) => {
+                form.setValue('description', text, { shouldDirty: true, shouldValidate: true })
+                // The preview (and its Accept button) is gone: continue in the field.
+                form.setFocus('description')
+              }}
+            />
+          )}
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">

@@ -1,6 +1,7 @@
 // Names people see for the API's feature keys (ai_usage.feature); an unknown one shows as is.
 const featureLabels: Record<string, string> = {
   task_summary: 'Task summaries',
+  task_writing: 'Writing help',
 }
 
 export const featureLabel = (feature: string) => featureLabels[feature] ?? feature

@@ -166,7 +166,8 @@ export interface Task {
   creator: TaskPerson | null
   created_at: string
   updated_at: string
-  can: { update: boolean; delete: boolean }
+  /** write_with_ai: AI writing help in the edit form (ai.use, edit access, a verified email). */
+  can: { update: boolean; delete: boolean; write_with_ai: boolean }
 }
 
 /** pending (being generated) → draft (waiting for review) → approved or rejected; failed when it couldn't be generated. */
@@ -304,3 +305,6 @@ export interface AiUsageReport {
   budget: AiBudget
   can: { manage_budget: boolean }
 }
+
+/** What AI writing help does with a task's description. */
+export type WritingHelpMode = 'improve' | 'expand' | 'shorten'

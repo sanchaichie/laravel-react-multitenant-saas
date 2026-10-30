@@ -51,12 +51,26 @@ interface ApiFetchOptions {
  * The server never uses it to choose one; org-scoped routes answer 409
  * `organization_changed` when another tab switched, and this tab then catches up.
  */
-export async function apiFetch<T>(
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+  const response = await apiRequest(path, options)
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return (await response.json()) as T
+}
+
+/**
+ * apiFetch without reading the body: the successful Response, for callers that read
+ * it themselves (apiStream). Same headers, 401 and 409 handling, and errors.
+ */
+export async function apiRequest(
   path: string,
-  { method = 'GET', body, signal, endSessionOn401 = true, token: explicitToken }: ApiFetchOptions = {},
-): Promise<T> {
+  { method = 'GET', body, signal, endSessionOn401 = true, token: explicitToken, accept = 'application/json' }: ApiFetchOptions & { accept?: string } = {},
+): Promise<Response> {
   const token = explicitToken ?? useAuth.getState().token
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = { Accept: accept }
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
   }
@@ -98,11 +112,7 @@ export async function apiFetch<T>(
     throw new ApiError(response.status, data)
   }
 
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return (await response.json()) as T
+  return response
 }
 
 let catchingUp: Promise<void> | null = null

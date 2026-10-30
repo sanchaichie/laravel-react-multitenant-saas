@@ -18,7 +18,7 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     creator: { id: ada.id, name: ada.name },
     created_at: '2026-10-20T12:00:00.000000Z',
     updated_at: '2026-10-21T12:00:00.000000Z',
-    can: { update: true, delete: true },
+    can: { update: true, delete: true, write_with_ai: true },
     ...overrides,
   }
 }
