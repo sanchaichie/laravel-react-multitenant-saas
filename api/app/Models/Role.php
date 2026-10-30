@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Permission;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToOrganization;
 use Database\Factories\RoleFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -26,10 +27,13 @@ use Illuminate\Support\Collection;
 class Role extends Model
 {
     /** @use HasFactory<RoleFactory> */
-    use BelongsToOrganization, HasFactory;
+    use Auditable, BelongsToOrganization, HasFactory;
 
     /** So a script can't create endless rows. */
     public const MAX_PER_ORGANIZATION = 50;
+
+    /** Set once by CreateDefaultRoles, which isn't recorded. */
+    protected array $auditExclude = ['is_owner'];
 
     protected $attributes = [
         'is_owner' => false,

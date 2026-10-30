@@ -32,7 +32,7 @@ enum DefaultRole: string
     {
         return match ($this) {
             self::Owner => [],
-            self::Admin => [Permission::TasksCreate, Permission::TasksManage, Permission::MembersInvite, Permission::MembersManage],
+            self::Admin => [Permission::TasksCreate, Permission::TasksManage, Permission::MembersInvite, Permission::MembersManage, Permission::AuditLogView],
             self::Member => [Permission::TasksCreate],
         };
     }

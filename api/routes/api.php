@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\InvitationController;
@@ -66,5 +67,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/tasks/{task}', [TaskController::class, 'update'])->where('task', '[0-9]{1,18}');
             Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->where('task', '[0-9]{1,18}');
         });
+
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-log/actions', [AuditLogController::class, 'actions']);
     });
 });

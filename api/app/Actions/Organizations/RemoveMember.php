@@ -2,7 +2,9 @@
 
 namespace App\Actions\Organizations;
 
+use App\Actions\Audit\RecordAudit;
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
+use App\Enums\AuditAction;
 use App\Models\Organization;
 use App\Models\Task;
 use App\Models\User;
@@ -13,7 +15,10 @@ class RemoveMember
 {
     use EnsuresAnOwnerRemains;
 
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
+    public function __construct(
+        private readonly CurrentOrganization $currentOrganization,
+        private readonly RecordAudit $recordAudit,
+    ) {}
 
     /**
      * Remove a member (or let them leave). Their tasks here become unassigned. If
@@ -27,17 +32,32 @@ class RemoveMember
         DB::transaction(function () use ($organization, $member) {
             $this->lockOrganization($organization);
 
-            if ($this->lockedRole($organization, $member)->is_owner) {
+            $role = $this->lockedRole($organization, $member);
+            if ($role->is_owner) {
                 $this->ensureAnotherOwner($organization, $member, 'member');
             }
 
             $organization->members()->detach($member->id);
 
-            // Only this organization's tasks (the scope), with server-chosen values:
-            // a builder update skips model events, which is fine for this column.
-            $this->currentOrganization->run($organization, fn () => Task::query()
-                ->where('assignee_id', $member->id)
-                ->update(['assignee_id' => null]));
+            // Only this organization's tasks (the scope), with server-chosen values.
+            // A builder update skips model events (and Auditable): the entry below
+            // counts them instead of one entry per task.
+            $this->currentOrganization->run($organization, function () use ($member, $role) {
+                $unassigned = Task::query()
+                    ->where('assignee_id', $member->id)
+                    ->update(['assignee_id' => null]);
+
+                $this->recordAudit->handle(
+                    AuditAction::MemberRemoved,
+                    ['type' => 'member', 'id' => $member->id, 'label' => $member->name],
+                    metadata: [
+                        'email' => $member->email,
+                        'role' => ['id' => $role->id, 'name' => $role->name],
+                        'left' => $member->is(auth()->user()),
+                        'unassigned_tasks' => $unassigned,
+                    ],
+                );
+            });
 
             if ($member->current_organization_id === $organization->id) {
                 $member->forceFill([

@@ -27,7 +27,7 @@ it('gives new organizations the default roles, and knows which roles include whi
     [$owner, $admin, $member] = array_map(fn (DefaultRole $role) => $this->organization->role($role), DefaultRole::cases());
 
     expect($owner->grants()->all())->toBe(Permission::cases())
-        ->and($admin->grants()->all())->toBe([Permission::TasksCreate, Permission::TasksManage, Permission::MembersInvite, Permission::MembersManage])
+        ->and($admin->grants()->all())->toBe([Permission::TasksCreate, Permission::TasksManage, Permission::MembersInvite, Permission::MembersManage, Permission::AuditLogView])
         ->and($member->grants()->all())->toBe([Permission::TasksCreate])
         ->and($owner->includes($admin))->toBeTrue()
         ->and($admin->includes($admin))->toBeTrue()

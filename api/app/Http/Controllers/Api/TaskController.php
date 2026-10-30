@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Tasks\CreateTask;
+use App\Actions\Tasks\DeleteTask;
 use App\Actions\Tasks\UpdateTask;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\ListTasksRequest;
@@ -58,11 +59,11 @@ class TaskController extends Controller
         return new TaskResource($action->handle($task, $request->validated())->load(['assignee', 'creator']));
     }
 
-    public function destroy(Task $task): Response
+    public function destroy(Task $task, DeleteTask $action): Response
     {
         Gate::authorize('delete', $task);
 
-        $task->delete();
+        $action->handle($task);
 
         return response()->noContent();
     }

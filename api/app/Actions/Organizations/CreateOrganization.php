@@ -2,7 +2,9 @@
 
 namespace App\Actions\Organizations;
 
+use App\Actions\Audit\RecordAudit;
 use App\Actions\Roles\CreateDefaultRoles;
+use App\Enums\AuditAction;
 use App\Enums\DefaultRole;
 use App\Models\Organization;
 use App\Models\User;
@@ -14,6 +16,7 @@ class CreateOrganization
     public function __construct(
         private readonly CurrentOrganization $currentOrganization,
         private readonly CreateDefaultRoles $createDefaultRoles,
+        private readonly RecordAudit $recordAudit,
     ) {}
 
     /**
@@ -28,6 +31,14 @@ class CreateOrganization
             $organization->members()->attach($owner, ['role_id' => $roles[DefaultRole::Owner->value]->id]);
 
             $owner->forceFill(['current_organization_id' => $organization->id])->save();
+
+            $this->recordAudit->handle(
+                AuditAction::OrganizationCreated,
+                ['type' => 'organization', 'id' => $organization->id, 'label' => $organization->name],
+                organization: $organization,
+                // Registering creates one before the user is logged in.
+                actor: $owner,
+            );
 
             return $organization;
         });

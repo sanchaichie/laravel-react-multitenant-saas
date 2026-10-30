@@ -2,8 +2,10 @@
 
 namespace App\Actions\Organizations;
 
+use App\Actions\Audit\RecordAudit;
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
 use App\Actions\Organizations\Concerns\LocksRole;
+use App\Enums\AuditAction;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
@@ -15,7 +17,10 @@ class ChangeMemberRole
 {
     use EnsuresAnOwnerRemains, LocksRole;
 
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
+    public function __construct(
+        private readonly CurrentOrganization $currentOrganization,
+        private readonly RecordAudit $recordAudit,
+    ) {}
 
     /**
      * @param  User  $member  loaded through $organization->members() (membership attached)
@@ -43,7 +48,18 @@ class ChangeMemberRole
                 $this->ensureAnotherOwner($organization, $member, 'role_id');
             }
 
+            if ($current->id === $role->id) {
+                return;
+            }
+
             $organization->members()->updateExistingPivot($member->id, ['role_id' => $role->id]);
+
+            // $current was read under the lock, so it's the role they really had.
+            $this->recordAudit->handle(
+                AuditAction::MemberRoleChanged,
+                ['type' => 'member', 'id' => $member->id, 'label' => $member->name],
+                ['role' => ['old' => ['id' => $current->id, 'name' => $current->name], 'new' => ['id' => $role->id, 'name' => $role->name]]],
+            );
         });
 
         // The acting user may have changed their own role.

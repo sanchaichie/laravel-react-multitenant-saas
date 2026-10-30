@@ -9,7 +9,7 @@ A multi-organization SaaS starter with a Laravel API and a React app, being rebu
 - **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
 
 ## Status
-You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
+You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The Audit log page shows owners and admins who changed what (tasks, members, invitations, roles) with old → new values, filtered by action, person and dates. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
 
 ## Requirements
 PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
@@ -39,6 +39,7 @@ Key settings in `api/.env`:
 | `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | `react_saas`, `postgres`, empty | The app database |
 | `FRONTEND_URL` | `http://localhost:5173` | The only origin CORS allows, and the base of email links |
 | `MAIL_MAILER` | `log` | Locally, emails are written to `storage/logs/laravel.log` |
+| `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries; `0` keeps them forever |
 
 The rest is explained by comments in `api/.env.example`.
 
@@ -56,6 +57,7 @@ cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --port=8100 --no-reload
 cd web && npm run dev
 ```
 Emails (verification links, invitations) are queued. To have them sent, also run a queue worker: `cd api && php artisan queue:work`. With `MAIL_MAILER=log` they're written to `api/storage/logs/laravel.log`, links included.
+Daily cleanup (expired invitations, audit log entries past `AUDIT_RETENTION_DAYS`) runs from the Laravel scheduler: `cd api && php artisan schedule:work` locally, or a cron entry for `php artisan schedule:run` in production.
 Open http://localhost:5173 and create an account. Vite must stay on :5173, the only origin the API's CORS allows (`FRONTEND_URL`).
 
 The API answers on `http://localhost:8100/api`:
@@ -87,8 +89,10 @@ The API answers on `http://localhost:8100/api`:
 | `PATCH /api/roles/{id}` | Rename or change permissions (the whole list); only roles that can do strictly less than yours, never Owner |
 | `DELETE /api/roles/{id}` | Delete a role nobody has; its pending invitations stop working |
 | `GET /api/permissions` | The permission catalogue (`value`, `label`, `group`) |
+| `GET /api/audit-logs` | The organization's audit log, newest first, 25 at a time (`meta.next_cursor`, sent back as `cursor`). Filters: `action`, `actor` (a user id), `from` and `to` (`YYYY-MM-DD`). Needs `audit_log.view`; IP addresses only for owners |
+| `GET /api/audit-log/actions` | The action catalogue for the filter (`value`, `label`, `group`) |
 
-Organization-scoped routes (members, invitations, tasks, roles) act on your current organization: there's never an organization id in the URL.
+Organization-scoped routes (members, invitations, tasks, roles, audit log) act on your current organization: there's never an organization id in the URL.
 
 Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email.
 
@@ -117,6 +121,8 @@ GitHub Actions runs all of these on every push to `main` and every pull request 
 | **Tasks**: filter by status, priority, assignee and overdue, search and sort (all in the URL) | **A task**: change its status in place, edit or delete it per your permissions |
 | ![Roles](docs/screenshots/roles.png) | ![Edit a role](docs/screenshots/role-edit.png) |
 | **Roles**: what each role allows, and how many have it | **Edit a role**: permissions grouped by area |
+| ![Audit log](docs/screenshots/audit-log.png) | |
+| **Audit log**: who changed what, with old → new values; filter by action, person and dates | |
 
 ## Working with Claude Code
 The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.

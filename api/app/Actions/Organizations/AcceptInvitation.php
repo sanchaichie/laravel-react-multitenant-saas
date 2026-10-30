@@ -2,7 +2,9 @@
 
 namespace App\Actions\Organizations;
 
+use App\Actions\Audit\RecordAudit;
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
+use App\Enums\AuditAction;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Role;
@@ -16,7 +18,10 @@ class AcceptInvitation
 {
     use EnsuresAnOwnerRemains;
 
-    public function __construct(private readonly SwitchOrganization $switchOrganization) {}
+    public function __construct(
+        private readonly SwitchOrganization $switchOrganization,
+        private readonly RecordAudit $recordAudit,
+    ) {}
 
     /**
      * Join the invitation's organization with its role and switch to it. The link
@@ -43,6 +48,15 @@ class AcceptInvitation
             // Already a member (added another way): keep the existing role.
             if (! $user->isMemberOf($organization)) {
                 $organization->members()->attach($user, ['role_id' => $invitation->role_id]);
+
+                // In the invitation's organization, not the one the user acts in now.
+                $role = $invitation->role;
+                $this->recordAudit->handle(
+                    AuditAction::MemberJoined,
+                    ['type' => 'member', 'id' => $user->id, 'label' => $user->name],
+                    metadata: ['email' => $invitation->email, 'role' => ['id' => $role->id, 'name' => $role->name]],
+                    organization: $organization,
+                );
             }
 
             $invitation->forceFill(['accepted_at' => now()])->save();

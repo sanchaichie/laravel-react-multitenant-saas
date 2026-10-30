@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToOrganization;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -31,9 +32,12 @@ use Illuminate\Support\Carbon;
 class Task extends Model
 {
     /** @use HasFactory<TaskFactory> */
-    use BelongsToOrganization, HasFactory;
+    use Auditable, BelongsToOrganization, HasFactory;
 
     public const PER_PAGE = 20;
+
+    /** The entry's actor is who created it. */
+    protected array $auditExclude = ['created_by'];
 
     protected $attributes = [
         'status' => 'todo',
@@ -50,6 +54,32 @@ class Task extends Model
             'assignee_id' => 'integer',
             'created_by' => 'integer',
         ];
+    }
+
+    public function auditLabel(): ?string
+    {
+        return $this->title;
+    }
+
+    /**
+     * The assignee by name, so the entry still reads after they leave.
+     *
+     * @param  array<string, array{old: mixed, new: mixed}>  $changes
+     * @return array<string, array{old: mixed, new: mixed}>
+     */
+    protected function auditChanges(array $changes): array
+    {
+        if (! isset($changes['assignee_id'])) {
+            return $changes;
+        }
+
+        ['old' => $old, 'new' => $new] = $changes['assignee_id'];
+        $names = User::query()->whereKey(array_filter([$old, $new]))->pluck('name', 'id');
+        $person = fn (?int $id) => $id === null ? null : ['id' => $id, 'name' => $names[$id] ?? null];
+
+        unset($changes['assignee_id']);
+
+        return [...$changes, 'assignee' => ['old' => $person($old), 'new' => $person($new)]];
     }
 
     /**

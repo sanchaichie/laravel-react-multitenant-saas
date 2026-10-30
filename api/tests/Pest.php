@@ -1,12 +1,15 @@
 <?php
 
+use App\Enums\AuditAction;
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
+use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\CurrentOrganization;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -121,4 +124,19 @@ function roleId(DefaultRole $role, ?Organization $organization = null): int
     $organization ??= Organization::query()->findOrFail(auth()->user()->current_organization_id);
 
     return $organization->role($role)->id;
+}
+
+/**
+ * Audit log entries of an organization (any, by default), oldest first, optionally
+ * only one action.
+ *
+ * @return EloquentCollection<int, AuditLog>
+ */
+function auditEntries(?Organization $organization = null, ?AuditAction $action = null): EloquentCollection
+{
+    return AuditLog::withoutGlobalScopes()
+        ->when($organization, fn ($query) => $query->where('organization_id', $organization->id))
+        ->when($action, fn ($query) => $query->where('action', $action))
+        ->orderBy('id')
+        ->get();
 }
