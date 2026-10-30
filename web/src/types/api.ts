@@ -8,6 +8,9 @@ export type Permission =
   | 'members.manage'
   | 'roles.manage'
   | 'audit_log.view'
+  | 'ai.use'
+  | 'ai_usage.view'
+  | 'ai_budget.manage'
 
 /** A role where something has one (you, a member, an invitation). Roles are per organization. */
 export interface Role {
@@ -264,4 +267,40 @@ export interface AuditFilters {
   /** Days (YYYY-MM-DD), read in the API's time zone. */
   from?: string
   to?: string
+}
+
+/** The current month's AI budget (GET /api/ai-usage, PUT /api/ai-budget). Amounts in USD. */
+export interface AiBudget {
+  limit_usd: number
+  /** No own budget: the app-wide default applies. */
+  is_default: boolean
+  /** What the organization set; null uses the default. 0 turns AI off. */
+  own_limit_usd: number | null
+  default_limit_usd: number
+  spent_usd: number
+  remaining_usd: number
+}
+
+/** Calls, tokens and cost of one slice of a month's AI usage. */
+export interface AiUsageRow {
+  calls: number
+  failed: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+}
+
+/** One month (UTC) of the current organization's AI usage. */
+export interface AiUsageReport {
+  /** YYYY-MM */
+  month: string
+  totals: AiUsageRow
+  by_feature: Array<AiUsageRow & { feature: string }>
+  /** user null: work started without a person, or by one whose account is gone. */
+  by_user: Array<AiUsageRow & { user: { id: number; name: string } | null }>
+  /** day: YYYY-MM-DD (UTC) */
+  by_day: Array<AiUsageRow & { day: string }>
+  /** Always this month's, whichever month is shown. */
+  budget: AiBudget
+  can: { manage_budget: boolean }
 }

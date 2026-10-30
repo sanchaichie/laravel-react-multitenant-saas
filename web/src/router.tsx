@@ -3,6 +3,7 @@ import { AppLayout } from '@/components/AppLayout'
 import { AuthLayout } from '@/components/AuthLayout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { RequireGuest } from '@/components/RequireGuest'
+import { AiUsagePage } from '@/routes/AiUsagePage'
 import { AuditLogPage } from '@/routes/AuditLogPage'
 import { HomePage } from '@/routes/HomePage'
 import { JoinPage } from '@/routes/JoinPage'
@@ -47,6 +48,7 @@ export const routes: RouteObject[] = [
               { path: 'members', element: <MembersPage /> },
               { path: 'roles', element: <RolesPage /> },
               { path: 'audit-log', element: <AuditLogPage /> },
+              { path: 'ai-usage', element: <AiUsagePage /> },
             ],
           },
           // Logged in, but in the card layout of the auth pages.

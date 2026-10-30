@@ -37,7 +37,7 @@ function AuditLogRow({ entry, permissions }: { entry: AuditLog; permissions: Per
           </time>
           <p className="min-w-0 flex-1 text-sm break-words">
             <span className="font-medium">{entry.actor?.name ?? 'Someone'}</span>{' '}
-            <span className="text-muted-foreground">{entry.action_label.toLowerCase()}</span>
+            <span className="text-muted-foreground">{lowerFirst(entry.action_label)}</span>
             {subjectLabel && (
               <>
                 {': '}
@@ -62,4 +62,9 @@ function AuditLogRow({ entry, permissions }: { entry: AuditLog; permissions: Per
       </Collapsible>
     </li>
   )
+}
+
+/** "Changed the AI budget" → "changed the AI budget": mid-sentence, keeping acronyms. */
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1)
 }

@@ -31,12 +31,7 @@ export function TaskSummaryCard({ task }: { task: Task }) {
   function onRequest() {
     request.mutate(task.id, {
       onError: (error) =>
-        toast.error('Could not request a summary', {
-          description:
-            error instanceof ApiError && error.status === 429
-              ? 'Too many AI requests for this organization, try again in a minute.'
-              : errorMessage(error),
-        }),
+        toast.error('Could not request a summary', { description: requestErrorMessage(error) }),
     })
   }
 
@@ -92,6 +87,17 @@ export function TaskSummaryCard({ task }: { task: Task }) {
       </CardContent>
     </Card>
   )
+}
+
+/** 429 and 402 get a sentence of their own; anything else, the API's message. */
+function requestErrorMessage(error: Error): string {
+  if (error instanceof ApiError && error.status === 429) {
+    return 'Too many AI requests for this organization, try again in a minute.'
+  }
+  if (error instanceof ApiError && error.status === 402) {
+    return "This organization's monthly AI budget is used up."
+  }
+  return errorMessage(error)
 }
 
 interface LatestSummaryProps {

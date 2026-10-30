@@ -265,4 +265,20 @@ describe('TaskSummaryCard', () => {
     expect(screen.getByText('Too many AI requests for this organization, try again in a minute.')).toBeInTheDocument()
     await waitFor(() => expect(within(summaryCard).getByText('No summary yet.')).toBeInTheDocument())
   })
+
+  it('says when the organization\'s AI budget is used up', async () => {
+    logIn()
+    api(() => noSummary, {
+      'POST /api/tasks/42/summary': () =>
+        jsonResponse({ message: "This organization's monthly AI budget is used up.", code: 'ai_budget_exceeded' }, 402),
+    })
+    const { user } = renderApp('/tasks/42')
+
+    const summaryCard = await card()
+    await user.click(await within(summaryCard).findByRole('button', { name: 'Generate summary' }))
+
+    expect(await screen.findByText('Could not request a summary')).toBeInTheDocument()
+    expect(screen.getByText("This organization's monthly AI budget is used up.")).toBeInTheDocument()
+    await waitFor(() => expect(within(summaryCard).getByText('No summary yet.')).toBeInTheDocument())
+  })
 })

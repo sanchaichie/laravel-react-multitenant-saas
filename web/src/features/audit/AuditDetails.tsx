@@ -1,4 +1,5 @@
 import { priorityLabel, statusLabel } from '@/features/tasks/filters'
+import { formatUsd } from '@/lib/format'
 import type { AuditLog, PermissionInfo, TaskPriority, TaskStatus } from '@/types/api'
 import { isNamed, metadataFacts } from './details'
 
@@ -12,6 +13,7 @@ const fieldLabels: Record<string, string> = {
   name: 'Name',
   permissions: 'Permissions',
   role: 'Role',
+  ai_monthly_budget_usd: 'Monthly AI budget',
 }
 
 const fieldLabel = (key: string) => fieldLabels[key] ?? key
@@ -62,6 +64,10 @@ export function AuditDetails({ entry, permissions }: { entry: AuditLog; permissi
 }
 
 function Value({ field, value }: { field: string; value: unknown }) {
+  // null is the default budget, not "nothing".
+  if (field === 'ai_monthly_budget_usd') {
+    return <span>{value === null ? 'Default' : formatUsd(Number(value))}</span>
+  }
   if (value === null || value === undefined || value === '') {
     return <span className="text-muted-foreground">—</span>
   }
