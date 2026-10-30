@@ -4,7 +4,6 @@ import { ErrorState } from '@/components/ErrorState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { roleLabel } from '@/features/organizations/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { formatDate } from '@/lib/format'
 import type { Invitation } from '@/types/api'
@@ -47,7 +46,14 @@ export function PendingInvitations() {
           <div className="grid min-w-0">
             <span className="truncate text-sm font-medium">{invitation.email}</span>
             <span className="text-xs text-muted-foreground">
-              {roleLabel(invitation.role)}
+              {invitation.role ? (
+                invitation.role.name
+              ) : (
+                // Its role was deleted: it can't be accepted (revoke it or invite again).
+                <Badge variant="outline" className="text-xs">
+                  Role deleted
+                </Badge>
+              )}
               {invitation.invited_by && ` · invited by ${invitation.invited_by}`}
               {' · '}
               {invitation.expired ? (

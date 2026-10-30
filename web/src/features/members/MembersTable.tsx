@@ -4,11 +4,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { roleLabel, sortRoles } from '@/features/organizations/api'
+import { sortRoles } from '@/features/roles/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { formatDate } from '@/lib/format'
 import { useCurrentOrganization } from '@/stores/auth'
-import type { Member, OrganizationRole } from '@/types/api'
+import type { Member } from '@/types/api'
 import { useChangeRole, useRemoveMember } from './api'
 
 /**
@@ -44,11 +44,18 @@ function MemberRow({ member }: { member: Member }) {
   const changeRole = useChangeRole()
   const removeMember = useRemoveMember()
 
-  function onRoleChange(role: string) {
+  // The choices: their current role plus the ones the API says you may give them.
+  const roles = sortRoles([member.role, ...member.assignable_roles])
+
+  // A Select's values are strings: the role's id.
+  function onRoleChange(value: string) {
+    const role = roles.find((choice) => String(choice.id) === value)
+    if (!role) return
+
     changeRole.mutate(
-      { member, role: role as OrganizationRole },
+      { member, role },
       {
-        onSuccess: () => toast.success(`${member.name} is now ${roleLabel(role as OrganizationRole)}`),
+        onSuccess: () => toast.success(`${member.name} now has the ${role.name} role`),
         onError: (error) => toast.error('Could not change the role', { description: errorMessage(error) }),
       },
     )
@@ -88,20 +95,20 @@ function MemberRow({ member }: { member: Member }) {
         {member.can.update ? (
           // Controlled by server data: it shows the member's role until the change
           // succeeds and the list is refetched.
-          <Select value={member.role} onValueChange={onRoleChange} disabled={changeRole.isPending}>
-            <SelectTrigger size="sm" className="w-28" aria-label={`Role of ${member.name}`}>
+          <Select value={String(member.role.id)} onValueChange={onRoleChange} disabled={changeRole.isPending}>
+            <SelectTrigger size="sm" className="w-36" aria-label={`Role of ${member.name}`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {sortRoles([member.role, ...member.assignable_roles]).map((role) => (
-                <SelectItem key={role} value={role}>
-                  {roleLabel(role)}
+              {roles.map((role) => (
+                <SelectItem key={role.id} value={String(role.id)}>
+                  {role.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         ) : (
-          <span>{roleLabel(member.role)}</span>
+          <span>{member.role.name}</span>
         )}
       </TableCell>
       <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(member.joined_at)}</TableCell>

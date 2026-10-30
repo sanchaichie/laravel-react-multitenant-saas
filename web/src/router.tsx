@@ -7,6 +7,7 @@ import { HomePage } from '@/routes/HomePage'
 import { JoinPage } from '@/routes/JoinPage'
 import { LoginPage } from '@/routes/LoginPage'
 import { MembersPage } from '@/routes/MembersPage'
+import { RolesPage } from '@/routes/RolesPage'
 import { NotFoundPage } from '@/routes/NotFoundPage'
 import { RegisterPage } from '@/routes/RegisterPage'
 import { RouteErrorPage } from '@/routes/RouteErrorPage'
@@ -43,6 +44,7 @@ export const routes: RouteObject[] = [
               { path: 'tasks', element: <TasksPage /> },
               { path: 'tasks/:id', element: <TaskDetailPage /> },
               { path: 'members', element: <MembersPage /> },
+              { path: 'roles', element: <RolesPage /> },
             ],
           },
           // Logged in, but in the card layout of the auth pages.

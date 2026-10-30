@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { useLogout } from '@/features/auth/api'
 import { AuthCard } from '@/features/auth/AuthCard'
-import { roleLabel, useOrganizations, useSwitchOrganization } from '@/features/organizations/api'
+import { useOrganizations, useSwitchOrganization } from '@/features/organizations/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { safeRedirect } from '@/lib/safeRedirect'
 import { useAuth, useCurrentOrganization } from '@/stores/auth'
@@ -101,7 +101,7 @@ export function SelectOrganizationPage() {
                   <span className="grid min-w-0">
                     <span className="truncate font-medium">{organization.name}</span>
                     <span className="text-xs font-normal text-muted-foreground">
-                      {roleLabel(organization.role)}
+                      {organization.role.name}
                       {isCurrent && ' · Last used'}
                     </span>
                   </span>

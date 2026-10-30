@@ -6,16 +6,27 @@ import { vi } from 'vitest'
 import { AppProviders } from '@/components/AppProviders'
 import { routes } from '@/router'
 import { useAuth } from '@/stores/auth'
-import type { Organization, OrganizationList, User } from '@/types/api'
+import type { Organization, OrganizationList, Role, User } from '@/types/api'
+
+/** Acme's default roles (ids as the API would give them). */
+export const ownerRole: Role = { id: 1, name: 'Owner', is_owner: true }
+export const adminRole: Role = { id: 2, name: 'Admin', is_owner: false }
+export const memberRole: Role = { id: 3, name: 'Member', is_owner: false }
 
 export const acme: Organization = {
   id: 10,
   name: 'Acme',
-  role: 'owner',
-  permissions: ['members.invite', 'members.manage', 'organization.manage', 'tasks.manage'],
+  role: ownerRole,
+  permissions: ['tasks.create', 'tasks.manage', 'members.invite', 'members.manage', 'roles.manage'],
   created_at: '2026-10-01T12:00:00.000000Z',
 }
-export const beta: Organization = { id: 20, name: 'Beta', role: 'member', permissions: [], created_at: '2026-10-02T12:00:00.000000Z' }
+export const beta: Organization = {
+  id: 20,
+  name: 'Beta',
+  role: { id: 23, name: 'Member', is_owner: false },
+  permissions: ['tasks.create'],
+  created_at: '2026-10-02T12:00:00.000000Z',
+}
 
 export const ada: User = {
   id: 1,

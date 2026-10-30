@@ -6,7 +6,6 @@ import { Spinner } from '@/components/ui/spinner'
 import { useLogout } from '@/features/auth/api'
 import { AuthCard } from '@/features/auth/AuthCard'
 import { useAcceptInvitation, useInvitationPreview } from '@/features/join/api'
-import { roleLabel } from '@/features/organizations/api'
 import { ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { formatDate } from '@/lib/format'
@@ -89,7 +88,7 @@ export function JoinPage() {
   return (
     <AuthCard
       title={`Join ${invitation.organization.name}`}
-      description={`${invitation.invited_by ?? 'Someone'} invited you to join as ${roleLabel(invitation.role)}.`}
+      description={`${invitation.invited_by ?? 'Someone'} invited you to join with the ${invitation.role.name} role.`}
     >
       <title>{`Join ${invitation.organization.name} · React SaaS`}</title>
       <div className="grid gap-4">

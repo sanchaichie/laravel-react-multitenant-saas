@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { makeTask, meMember, mia, taskPage } from '@/test/tasks'
-import { acme, ada, beta, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
+import { acme, ada, beta, memberRole, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
 import type { Task } from '@/types/api'
 
 type Handler = (init: RequestInit, url: URL) => Response
@@ -65,7 +65,7 @@ describe('TaskDetailPage', () => {
   })
 
   it('hides Edit, Delete and the status select per `can`', async () => {
-    logIn({ ...ada, current_organization: { ...acme, role: 'member', permissions: [] } })
+    logIn({ ...ada, current_organization: { ...acme, role: memberRole, permissions: ['tasks.create'] } })
     api({ 'GET /api/tasks/42': () => jsonResponse({ data: { ...task, can: { update: false, delete: false } } }) })
     renderApp('/tasks/42')
 

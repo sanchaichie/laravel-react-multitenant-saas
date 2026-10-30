@@ -5,7 +5,7 @@ import { reloadUser } from '@/features/auth/session'
 import { organizationsQuery } from '@/features/organizations/api'
 import { apiFetch } from '@/lib/api'
 import { useCurrentOrganization } from '@/stores/auth'
-import type { Invitation, InvitationList, Member, OrganizationRole } from '@/types/api'
+import type { Invitation, InvitationList, Member, Role } from '@/types/api'
 
 // Org-scoped: the organization id is part of every key, so a switch (which also
 // removes ['org'] queries) can never show the previous organization's people.
@@ -39,17 +39,21 @@ export function useChangeRole() {
   const organizationId = useCurrentOrganization()?.id
 
   return useMutation({
-    mutationFn: ({ member, role }: { member: Member; role: OrganizationRole }) =>
-      apiFetch<{ data: Member }>(`/api/members/${member.id}`, { method: 'PATCH', body: { role } }),
+    mutationFn: ({ member, role }: { member: Member; role: Role }) =>
+      apiFetch<{ data: Member }>(`/api/members/${member.id}`, { method: 'PATCH', body: { role_id: role.id } }),
     onSuccess: async (_data, { member }) => {
-      // Your own role changed: your permissions did too, so both lists' `can` flags
-      // (and the roles you may invite with) are out of date.
+      // Your own role changed: your permissions did too, so every list's `can` flags
+      // (and the roles you may invite with or edit) are out of date.
       if (member.is_me) {
         await reloadUser()
         await queryClient.invalidateQueries({ queryKey: ['org', organizationId] })
         return
       }
-      await queryClient.invalidateQueries({ queryKey: ['org', organizationId, 'members'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['org', organizationId, 'members'] }),
+        // Member counts on the roles page.
+        queryClient.invalidateQueries({ queryKey: ['org', organizationId, 'roles'] }),
+      ])
     },
   })
 }
@@ -71,7 +75,10 @@ export function useRemoveMember() {
     onMutate: () => ({ organizationId: organization?.id, organizationName: organization?.name }),
     onSuccess: async (_data, member, context) => {
       if (!member.is_me) {
-        await queryClient.invalidateQueries({ queryKey: ['org', context.organizationId, 'members'] })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['org', context.organizationId, 'members'] }),
+          queryClient.invalidateQueries({ queryKey: ['org', context.organizationId, 'roles'] }),
+        ])
         return
       }
 
@@ -91,7 +98,7 @@ export function useInvite() {
   const organizationId = useCurrentOrganization()?.id
 
   return useMutation({
-    mutationFn: (body: { email: string; role: OrganizationRole }) =>
+    mutationFn: (body: { email: string; role_id: number }) =>
       apiFetch<{ data: Invitation }>('/api/invitations', { method: 'POST', body }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['org', organizationId, 'invitations'] }),
   })

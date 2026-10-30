@@ -1,12 +1,12 @@
 import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { acme, ada, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
-import type { Invitation, OrganizationRole } from '@/types/api'
+import { acme, ada, adminRole, jsonResponse, logIn, memberRole, ownerRole, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
+import type { Invitation, Role } from '@/types/api'
 
 const invitation: Invitation = {
   id: 7,
   email: 'ben@example.com',
-  role: 'admin',
+  role: adminRole,
   invited_by: 'Ada Lovelace',
   expires_at: '2026-11-05T12:00:00.000000Z',
   expired: false,
@@ -14,8 +14,8 @@ const invitation: Invitation = {
   can: { delete: true },
 }
 
-function invitationList(data: Invitation[], invitable: OrganizationRole[] = ['owner', 'admin', 'member']) {
-  return { data, meta: { invitable_roles: invitable } }
+function invitationList(data: Invitation[], invitable: Role[] = [ownerRole, adminRole, memberRole]) {
+  return { data, meta: { invitable_roles: invitable, default_role_id: invitable.at(-1)?.id ?? null } }
 }
 
 function api(overrides: Record<string, (init: RequestInit) => Response> = {}) {
@@ -69,12 +69,12 @@ describe('InviteForm', () => {
     expect(await screen.findByText('ben@example.com')).toBeInTheDocument()
     expect(within(form).getByLabelText('Email')).toHaveValue('')
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
-    expect(sentBody(post?.[1] ?? {})).toEqual({ email: 'ben@example.com', role: 'admin' })
+    expect(sentBody(post?.[1] ?? {})).toEqual({ email: 'ben@example.com', role_id: adminRole.id })
   })
 
   it('offers only the roles the API says you may invite with', async () => {
-    logIn({ ...ada, current_organization: { ...acme, role: 'admin', permissions: ['members.invite', 'members.manage'] } })
-    api({ 'GET /api/invitations': () => jsonResponse(invitationList([], ['member', 'admin'])) })
+    logIn({ ...ada, current_organization: { ...acme, role: adminRole, permissions: ['members.invite', 'members.manage'] } })
+    api({ 'GET /api/invitations': () => jsonResponse(invitationList([], [memberRole, adminRole])) })
     const { user } = renderApp('/members')
 
     const form = await inviteForm()
@@ -133,5 +133,14 @@ describe('InviteForm', () => {
 
     expect(await screen.findByText('Invitation revoked')).toBeInTheDocument()
     expect(await screen.findByText('No pending invitations.')).toBeInTheDocument()
+  })
+
+  it('marks an invitation whose role was deleted, and starts the form on the API\'s default role', async () => {
+    logIn()
+    api({ 'GET /api/invitations': () => jsonResponse(invitationList([{ ...invitation, role: null }])) })
+    renderApp('/members')
+
+    expect(await screen.findByText('Role deleted')).toBeInTheDocument()
+    expect(within(await inviteForm()).getByRole('combobox', { name: 'Role' })).toHaveTextContent('Member')
   })
 })

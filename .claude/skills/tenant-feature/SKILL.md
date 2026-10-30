@@ -21,7 +21,7 @@ Tasks is the reference implementation (plan 07). Open each file named below and 
    - `#[Fillable([...])]`. Never make `organization_id` fillable.
    - In tests and seeders, create records inside `inOrganization($org, fn () => ...)`.
    - If users create, edit or delete it, also `use Auditable;` and add `<thing>.created|updated|deleted` cases (with labels) to `App\Enums\AuditAction`. List columns that shouldn't be logged in `$auditExclude`.
-3. **Policy.** Reference: `app/Policies/TaskPolicy.php`. Decide by `CurrentOrganization::can()` with an `App\Enums\Permission` case (by role until plan 08 adds permissions) and ownership fields. Never check `organization_id` here; the scope already handles that.
+3. **Policy.** Reference: `app/Policies/TaskPolicy.php`. Decide by `CurrentOrganization::can()` with an `App\Enums\Permission` case (add one if the feature needs its own, with `label()` and `group()`, and decide which `DefaultRole`s get it: a new migration grants it to existing organizations' roles) and ownership fields. Never check `organization_id` here; the scope already handles that.
 4. **Actions.** Reference: `app/Actions/Tasks/`. One class per write operation. It sets server-side fields such as `created_by` and dispatches domain events (`app/Events/TaskCreated.php`).
 5. **Form Requests.** Reference: `app/Http/Requests/Tasks/`.
    - Unique rules: `Rule::unique('<table>', 'name')->where('organization_id', app(CurrentOrganization::class)->id())`, plus `->ignore(...)` on update.

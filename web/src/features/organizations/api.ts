@@ -2,7 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { useLocation, useNavigate } from 'react-router'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/stores/auth'
-import type { Organization, OrganizationList, OrganizationRole } from '@/types/api'
+import type { Organization, OrganizationList } from '@/types/api'
 
 /**
  * The user's organizations (not org-scoped: it's the same list whichever one is
@@ -80,17 +80,4 @@ export function useCreateOrganization() {
       enterOrganization(data)
     },
   })
-}
-
-/** Highest first: role choices are always listed in this order. */
-export const ROLE_ORDER: OrganizationRole[] = ['owner', 'admin', 'member']
-
-export function sortRoles(roles: OrganizationRole[]): OrganizationRole[] {
-  return [...roles].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b))
-}
-
-const roleLabels: Record<OrganizationRole, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' }
-
-export function roleLabel(role: OrganizationRole): string {
-  return roleLabels[role]
 }

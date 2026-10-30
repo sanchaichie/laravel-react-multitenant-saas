@@ -2,27 +2,27 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { queryClient } from '@/lib/queryClient'
 import { useAuth } from '@/stores/auth'
-import { acme, ada, beta, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
+import { acme, ada, adminRole, beta, memberRole, ownerRole, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
 import type { Member } from '@/types/api'
 
 const me: Member = {
   id: ada.id,
   name: 'Ada Lovelace',
   email: 'ada@example.com',
-  role: 'owner',
+  role: ownerRole,
   joined_at: '2026-10-01T12:00:00.000000Z',
   is_me: true,
-  assignable_roles: ['admin', 'member'],
+  assignable_roles: [adminRole, memberRole],
   can: { update: true, delete: true },
 }
 const ana: Member = {
   id: 2,
   name: 'Ana Admin',
   email: 'ana@example.com',
-  role: 'admin',
+  role: adminRole,
   joined_at: '2026-10-02T12:00:00.000000Z',
   is_me: false,
-  assignable_roles: ['owner', 'member'],
+  assignable_roles: [ownerRole, memberRole],
   can: { update: true, delete: true },
 }
 const ownerSeenByMember: Member = { ...me, id: 3, name: 'Olga Owner', is_me: false, assignable_roles: [], can: { update: false, delete: false } }
@@ -31,7 +31,7 @@ function api(overrides: Record<string, (init: RequestInit) => Response> = {}) {
   return mockApi({
     'GET /api/organizations': () => jsonResponse(organizationList([acme, beta])),
     'GET /api/members': () => jsonResponse({ data: [ana, me] }),
-    'GET /api/invitations': () => jsonResponse({ data: [], meta: { invitable_roles: ['owner', 'admin', 'member'] } }),
+    'GET /api/invitations': () => jsonResponse({ data: [], meta: { invitable_roles: [ownerRole, adminRole, memberRole], default_role_id: memberRole.id } }),
     ...overrides,
   })
 }
@@ -62,8 +62,8 @@ describe('MembersPage', () => {
   })
 
   it('hides what a member may not do', async () => {
-    logIn({ ...ada, current_organization: { ...acme, role: 'member', permissions: [] } })
-    api({ 'GET /api/members': () => jsonResponse({ data: [ownerSeenByMember, { ...me, role: 'member', assignable_roles: [], can: { update: false, delete: true } }] }) })
+    logIn({ ...ada, current_organization: { ...acme, role: memberRole, permissions: [] } })
+    api({ 'GET /api/members': () => jsonResponse({ data: [ownerSeenByMember, { ...me, role: memberRole, assignable_roles: [], can: { update: false, delete: true } }] }) })
     renderApp('/members')
 
     const rows = await screen.findAllByRole('row')
@@ -110,7 +110,7 @@ describe('MembersPage', () => {
 
   it('changes a role with the keyboard', async () => {
     logIn()
-    const fetchMock = api({ [`PATCH /api/members/${ana.id}`]: () => jsonResponse({ data: { ...ana, role: 'member' } }) })
+    const fetchMock = api({ [`PATCH /api/members/${ana.id}`]: () => jsonResponse({ data: { ...ana, role: memberRole } }) })
     const { user } = renderApp('/members')
 
     const select = await screen.findByRole('combobox', { name: 'Role of Ana Admin' })
@@ -118,9 +118,9 @@ describe('MembersPage', () => {
     await user.keyboard('{Enter}')
     await user.click(await screen.findByRole('option', { name: 'Member' }))
 
-    expect(await screen.findByText('Ana Admin is now Member')).toBeInTheDocument()
+    expect(await screen.findByText('Ana Admin now has the Member role')).toBeInTheDocument()
     const patch = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
-    expect(sentBody(patch?.[1] ?? {})).toEqual({ role: 'member' })
+    expect(sentBody(patch?.[1] ?? {})).toEqual({ role_id: memberRole.id })
   })
 
   it('leaves: back home in the organization the server moved us to', async () => {

@@ -12,6 +12,7 @@ import { TaskFilters } from '@/features/tasks/TaskFilters'
 import { TaskFormDialog } from '@/features/tasks/TaskFormDialog'
 import { TasksTable } from '@/features/tasks/TasksTable'
 import { useTaskFilters } from '@/features/tasks/useTaskFilters'
+import { useCan } from '@/hooks/useCan'
 import { errorMessage } from '@/lib/apiErrors'
 import { cn } from '@/lib/utils'
 import { useCurrentOrganization } from '@/stores/auth'
@@ -21,6 +22,8 @@ export function TasksPage() {
   const organization = useCurrentOrganization()
   const { filters, setFilters, clearFilters } = useTaskFilters()
   const tasks = useTasks(filters)
+  // A role without tasks.create (say, a viewer) only reads.
+  const canCreate = useCan('tasks.create')
 
   if (!organization) {
     return (
@@ -46,12 +49,14 @@ export function TasksPage() {
           <h1 className="text-2xl font-semibold">Tasks</h1>
           <p className="text-sm text-muted-foreground">Everything to do in {organization.name}.</p>
         </div>
-        <TaskFormDialog>
-          <Button>
-            <PlusIcon aria-hidden />
-            New task
-          </Button>
-        </TaskFormDialog>
+        {canCreate && (
+          <TaskFormDialog>
+            <Button>
+              <PlusIcon aria-hidden />
+              New task
+            </Button>
+          </TaskFormDialog>
+        )}
       </div>
 
       <TaskFilters filters={filters} onChange={setFilters} onClear={clearFilters} />
@@ -78,13 +83,22 @@ export function TasksPage() {
                 </Button>
               </EmptyState>
             ) : (
-              <EmptyState title="No tasks yet" description="Create the first one: give it a title, and assign it if you like.">
-                <TaskFormDialog>
-                  <Button>
-                    <PlusIcon aria-hidden />
-                    New task
-                  </Button>
-                </TaskFormDialog>
+              <EmptyState
+                title="No tasks yet"
+                description={
+                  canCreate
+                    ? 'Create the first one: give it a title, and assign it if you like.'
+                    : 'Tasks created in this organization will show here.'
+                }
+              >
+                {canCreate && (
+                  <TaskFormDialog>
+                    <Button>
+                      <PlusIcon aria-hidden />
+                      New task
+                    </Button>
+                  </TaskFormDialog>
+                )}
               </EmptyState>
             )
           ) : (
@@ -143,13 +157,13 @@ function PageLink({ filters, page, disabled, children }: { filters: Filters; pag
   )
 }
 
-function EmptyState({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function EmptyState({ title, description, children }: { title: string; description: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
       <ListTodoIcon className="size-8 text-muted-foreground" aria-hidden />
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
-      <div className="mt-2">{children}</div>
+      {children ? <div className="mt-2">{children}</div> : null}
     </div>
   )
 }

@@ -14,7 +14,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/c
 import { Spinner } from '@/components/ui/spinner'
 import { errorMessage } from '@/lib/apiErrors'
 import { useCurrentOrganization } from '@/stores/auth'
-import { roleLabel, useOrganizations, useSwitchOrganization } from './api'
+import { useOrganizations, useSwitchOrganization } from './api'
 import { CreateOrganizationDialog } from './CreateOrganizationDialog'
 
 /** The top of the sidebar: which organization you're in, and a menu to change it. */
@@ -58,7 +58,7 @@ export function OrganizationSwitcher() {
               </div>
               <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{name}</span>
-                {current && <span className="truncate text-xs text-muted-foreground">{roleLabel(current.role)}</span>}
+                {current && <span className="truncate text-xs text-muted-foreground">{current.role.name}</span>}
               </div>
               {switchOrganization.isPending ? <Spinner className="ml-auto" /> : <ChevronsUpDownIcon className="ml-auto" />}
             </SidebarMenuButton>
@@ -80,7 +80,7 @@ export function OrganizationSwitcher() {
               >
                 <div className="grid min-w-0">
                   <span className="truncate">{organization.name}</span>
-                  <span className="text-xs text-muted-foreground">{roleLabel(organization.role)}</span>
+                  <span className="text-xs text-muted-foreground">{organization.role.name}</span>
                 </div>
               </DropdownMenuCheckboxItem>
             ))}

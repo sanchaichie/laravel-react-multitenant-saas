@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { LayoutDashboardIcon, ListTodoIcon, UsersIcon } from 'lucide-react'
+import { LayoutDashboardIcon, ListTodoIcon, ShieldIcon, UsersIcon } from 'lucide-react'
 import { NavLink, useMatch } from 'react-router'
 import {
   Sidebar,
@@ -28,6 +28,7 @@ const navigation: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboardIcon },
   { to: '/tasks', label: 'Tasks', icon: ListTodoIcon },
   { to: '/members', label: 'Members', icon: UsersIcon },
+  { to: '/roles', label: 'Roles', icon: ShieldIcon },
 ]
 
 export function AppSidebar() {

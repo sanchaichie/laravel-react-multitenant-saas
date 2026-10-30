@@ -1,6 +1,5 @@
 import { Link } from 'react-router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { roleLabel } from '@/features/organizations/api'
 import { formatDate } from '@/lib/format'
 import { useAuth, useCurrentOrganization } from '@/stores/auth'
 
@@ -24,7 +23,7 @@ export function HomePage() {
             {organization ? (
               <>
                 You're working in <span className="font-medium text-foreground">{organization.name}</span> as{' '}
-                {roleLabel(organization.role)}.{' '}
+                {organization.role.name}.{' '}
                 <Link to="/tasks?assignee=me" className="font-medium text-foreground underline underline-offset-4">
                   See your tasks
                 </Link>
@@ -39,7 +38,7 @@ export function HomePage() {
             <dt className="text-muted-foreground">Organization</dt>
             <dd>{organization?.name ?? 'None'}</dd>
             <dt className="text-muted-foreground">Your role</dt>
-            <dd>{organization ? roleLabel(organization.role) : '—'}</dd>
+            <dd>{organization ? organization.role.name : '—'}</dd>
             <dt className="text-muted-foreground">Email</dt>
             <dd className="break-all">{user.email}</dd>
             <dt className="text-muted-foreground">Member since</dt>

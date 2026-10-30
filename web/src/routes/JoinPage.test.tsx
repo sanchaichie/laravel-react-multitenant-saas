@@ -1,14 +1,14 @@
 import { screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { useAuth } from '@/stores/auth'
-import { acme, ada, beta, jsonResponse, logIn, mockApi, organizationList, renderApp } from '@/test/utils'
+import { acme, ada, adminRole, beta, jsonResponse, logIn, mockApi, organizationList, renderApp } from '@/test/utils'
 import type { InvitationPreview } from '@/types/api'
 
 const token = 'a'.repeat(48)
 const preview: InvitationPreview = {
   organization: { name: 'Beta' },
   invited_by: 'Maya',
-  role: 'admin',
+  role: adminRole,
   email: 'ada@example.com',
   expires_at: '2026-11-05T12:00:00.000000Z',
   already_member: false,
@@ -19,14 +19,14 @@ describe('JoinPage', () => {
     logIn()
     mockApi({
       [`GET /api/join/${token}`]: () => jsonResponse({ data: preview }),
-      [`POST /api/join/${token}`]: () => jsonResponse({ data: { ...beta, role: 'admin' } }),
-      'GET /api/me': () => jsonResponse({ data: { ...ada, current_organization: { ...beta, role: 'admin' } } }),
+      [`POST /api/join/${token}`]: () => jsonResponse({ data: { ...beta, role: adminRole } }),
+      'GET /api/me': () => jsonResponse({ data: { ...ada, current_organization: { ...beta, role: adminRole } } }),
       'GET /api/organizations': () => jsonResponse(organizationList([acme, beta], beta.id)),
     })
     const { router, user } = renderApp(`/join/${token}`)
 
     expect(await screen.findByRole('heading', { name: 'Join Beta' })).toBeInTheDocument()
-    expect(screen.getByText('Maya invited you to join as Admin.')).toBeInTheDocument()
+    expect(screen.getByText('Maya invited you to join with the Admin role.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Accept invitation' }))
 

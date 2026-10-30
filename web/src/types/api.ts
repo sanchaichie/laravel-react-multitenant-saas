@@ -1,15 +1,42 @@
 // Shapes of the Laravel API's requests and responses (api/app/Http/Resources).
 
-export type OrganizationRole = 'owner' | 'admin' | 'member'
-
 /** What a role allows (App\\Enums\\Permission). Only for showing controls: the API decides. */
-export type Permission = 'members.invite' | 'members.manage' | 'organization.manage' | 'tasks.manage'
+export type Permission = 'tasks.create' | 'tasks.manage' | 'members.invite' | 'members.manage' | 'roles.manage'
+
+/** A role where something has one (you, a member, an invitation). Roles are per organization. */
+export interface Role {
+  id: number
+  name: string
+  /** The built-in Owner role: every permission, can't be edited or deleted. */
+  is_owner: boolean
+}
+
+/** A role on the roles page: what it allows and what you may do to it. */
+export interface RoleDetails extends Role {
+  /** Every permission for the owner role. */
+  permissions: Permission[]
+  members_count: number
+  can: { update: boolean; delete: boolean }
+}
+
+export interface RolePayload {
+  name: string
+  permissions: Permission[]
+}
+
+/** One entry of the permission catalogue (GET /api/permissions). */
+export interface PermissionInfo {
+  value: Permission
+  label: string
+  /** The area it belongs to, e.g. "Tasks". */
+  group: string
+}
 
 /** An organization as the current user sees it: with their role in it. */
 export interface Organization {
   id: number
   name: string
-  role: OrganizationRole
+  role: Role
   permissions: Permission[]
   created_at: string
 }
@@ -59,18 +86,19 @@ export interface Member {
   id: number
   name: string
   email: string
-  role: OrganizationRole
+  role: Role
   joined_at: string
   is_me: boolean
   /** Roles this member may be changed to (empty: no role change allowed). */
-  assignable_roles: OrganizationRole[]
+  assignable_roles: Role[]
   can: { update: boolean; delete: boolean }
 }
 
 export interface Invitation {
   id: number
   email: string
-  role: OrganizationRole
+  /** Null once its role was deleted: it can't be accepted, only revoked or replaced. */
+  role: Role | null
   invited_by: string | null
   expires_at: string
   expired: boolean
@@ -81,14 +109,18 @@ export interface Invitation {
 export interface InvitationList {
   data: Invitation[]
   /** The roles the requesting user may invite with (the API's policy). */
-  meta: { invitable_roles: OrganizationRole[] }
+  meta: {
+    invitable_roles: Role[]
+    /** The one the invite form starts on: the least powerful of them. */
+    default_role_id: number | null
+  }
 }
 
 /** What the join page shows before accepting. */
 export interface InvitationPreview {
   organization: { name: string }
   invited_by: string | null
-  role: OrganizationRole
+  role: Role
   email: string
   expires_at: string
   already_member: boolean

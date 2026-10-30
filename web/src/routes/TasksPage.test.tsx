@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { makeTask, meMember, mia, taskPage } from '@/test/tasks'
-import { acme, ada, beta, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
+import { acme, ada, beta, memberRole, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
 import type { Paginated, Task } from '@/types/api'
 
 type Handler = (init: RequestInit, url: URL) => Response | Promise<Response>
@@ -224,12 +224,22 @@ describe('TasksPage', () => {
   })
 
   it('lets a member create tasks too', async () => {
-    logIn({ ...ada, current_organization: { ...acme, role: 'member', permissions: [] } })
+    logIn({ ...ada, current_organization: { ...acme, role: memberRole, permissions: ['tasks.create'] } })
     api()
     renderApp('/tasks')
 
     expect(await screen.findByRole('heading', { name: 'No tasks yet' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'New task' })[0]).toBeEnabled()
+  })
+
+  it('hides New task from a role without tasks.create', async () => {
+    logIn({ ...ada, current_organization: { ...acme, role: { id: 9, name: 'Viewer', is_owner: false }, permissions: [] } })
+    api()
+    renderApp('/tasks')
+
+    expect(await screen.findByRole('heading', { name: 'No tasks yet' })).toBeInTheDocument()
+    expect(screen.getByText('Tasks created in this organization will show here.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New task' })).not.toBeInTheDocument()
   })
 
   it('drops the filters when you switch organization', async () => {

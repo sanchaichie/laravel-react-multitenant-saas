@@ -1,5 +1,5 @@
 import type { Member, Paginated, Task } from '@/types/api'
-import { ada } from './utils'
+import { ada, adminRole, memberRole, ownerRole } from './utils'
 
 let nextId = 100
 
@@ -36,7 +36,7 @@ export const meMember: Member = {
   id: ada.id,
   name: ada.name,
   email: ada.email,
-  role: 'owner',
+  role: ownerRole,
   joined_at: '2026-10-01T12:00:00.000000Z',
   is_me: true,
   assignable_roles: [],
@@ -47,9 +47,9 @@ export const mia: Member = {
   id: 7,
   name: 'Mia Member',
   email: 'mia@example.com',
-  role: 'member',
+  role: memberRole,
   joined_at: '2026-10-02T12:00:00.000000Z',
   is_me: false,
-  assignable_roles: ['admin'],
+  assignable_roles: [adminRole],
   can: { update: true, delete: true },
 }
