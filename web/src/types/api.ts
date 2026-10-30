@@ -167,7 +167,8 @@ export interface Task {
   created_at: string
   updated_at: string
   /** write_with_ai: AI writing help in the edit form (ai.use, edit access, a verified email). */
-  can: { update: boolean; delete: boolean; write_with_ai: boolean }
+  /** chat: your own AI chat about it (ai.use); sending also needs a verified email. */
+  can: { update: boolean; delete: boolean; write_with_ai: boolean; chat: boolean }
 }
 
 /** pending (being generated) → draft (waiting for review) → approved or rejected; failed when it couldn't be generated. */
@@ -308,3 +309,13 @@ export interface AiUsageReport {
 
 /** What AI writing help does with a task's description. */
 export type WritingHelpMode = 'improve' | 'expand' | 'shorten'
+
+/** One message of your private AI chat about a task (GET /api/tasks/{id}/chat). */
+export interface TaskChatMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  /** An answer is stopped (cancelled, or still being written), failed, or complete. */
+  status: 'complete' | 'stopped' | 'failed'
+  created_at: string
+}

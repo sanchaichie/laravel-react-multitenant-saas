@@ -38,12 +38,16 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+/** How a stream ended, for the caller that started it. */
+export type AiStreamEnd = { status: 'done' } | { status: 'error'; message: string } | { status: 'cancelled' }
+
 /**
  * One streamed AI answer at a time (server-sent events: delta, done, error).
- * start() resolves when the stream ends, and rejects only when the request itself
- * is refused (ApiError: 402, 422, 429, ...), so the caller can say why. Starting
- * again, stop(), reset() or unmounting cancel the running stream; a cancelled one
- * never changes the state again.
+ * start() resolves when the stream ends, with how it ended ('cancelled': stopped,
+ * replaced or unmounted), and rejects only when the request itself is refused
+ * (ApiError: 402, 422, 429, ...), so the caller can say why. Starting again, stop(),
+ * reset() or unmounting cancel the running stream; a cancelled one never changes the
+ * state again.
  */
 export function useAiStream() {
   const [state, dispatch] = useReducer(reducer, idle)
@@ -53,12 +57,12 @@ export function useAiStream() {
   // Leaving the page or closing the dialog stops the answer (the server then stops the AI call).
   useEffect(() => () => current.current?.abort(), [])
 
-  const start = useCallback(async (path: string, body: unknown) => {
+  const start = useCallback(async (path: string, body: unknown): Promise<AiStreamEnd> => {
     current.current?.abort()
     const controller = new AbortController()
     current.current = controller
     const isCurrent = () => current.current === controller
-    let ended = false
+    let end: AiStreamEnd | null = null
     dispatch({ type: 'start' })
 
     try {
@@ -69,20 +73,23 @@ export function useAiStream() {
           if (!isCurrent()) return
           if (event === 'delta' && isText(data)) dispatch({ type: 'delta', text: data.text })
           if (event === 'done') {
-            ended = true
+            end = { status: 'done' }
             dispatch({ type: 'done' })
           }
           if (event === 'error') {
-            ended = true
-            dispatch({ type: 'error', message: isMessage(data) ? data.message : 'The AI request failed.' })
+            end = { status: 'error', message: isMessage(data) ? data.message : 'The AI request failed.' }
+            dispatch({ type: 'error', message: end.message })
           }
         },
       })
-      if (isCurrent() && !ended) {
-        dispatch({ type: 'error', message: 'The answer broke off. Try again.' })
+      if (!isCurrent()) return { status: 'cancelled' }
+      if (end === null) {
+        end = { status: 'error', message: 'The answer broke off. Try again.' }
+        dispatch({ type: 'error', message: end.message })
       }
+      return end
     } catch (error) {
-      if (!isCurrent() || controller.signal.aborted) return
+      if (!isCurrent() || controller.signal.aborted) return { status: 'cancelled' }
       // Refused before streaming (or the connection failed): back to idle, the caller says why.
       dispatch({ type: 'reset' })
       throw error

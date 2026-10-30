@@ -12,6 +12,7 @@ import { useDeleteTask, useTask, useUpdateTask } from '@/features/tasks/api'
 import { TASK_STATUSES, statusLabel } from '@/features/tasks/filters'
 import { OverdueBadge, TaskPriorityBadge, TaskStatusBadge } from '@/features/tasks/TaskBadges'
 import { TaskFormDialog } from '@/features/tasks/TaskFormDialog'
+import { TaskChatSheet } from '@/features/taskChat/TaskChatSheet'
 import { TaskSummaryCard } from '@/features/taskSummaries/TaskSummaryCard'
 import { ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
@@ -104,8 +105,9 @@ function TaskDetails({ task }: { task: Task }) {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="min-w-0 text-2xl font-semibold break-words">{task.title}</h1>
-        {(task.can.update || task.can.delete) && (
-          <div className="flex gap-2">
+        {(task.can.update || task.can.delete || task.can.chat) && (
+          <div className="flex flex-wrap gap-2">
+            {task.can.chat && <TaskChatSheet task={task} />}
             {task.can.update && (
               <TaskFormDialog task={task}>
                 <Button variant="outline">

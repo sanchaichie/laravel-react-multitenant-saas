@@ -67,7 +67,7 @@ describe('TaskDetailPage', () => {
 
   it('hides Edit, Delete and the status select per `can`', async () => {
     logIn({ ...ada, current_organization: { ...acme, role: memberRole, permissions: ['tasks.create'] } })
-    api({ 'GET /api/tasks/42': () => jsonResponse({ data: { ...task, can: { update: false, delete: false, write_with_ai: false } } }) })
+    api({ 'GET /api/tasks/42': () => jsonResponse({ data: { ...task, can: { update: false, delete: false, write_with_ai: false, chat: false } } }) })
     renderApp('/tasks/42')
 
     await screen.findByRole('heading', { name: 'Write onboarding doc' })

@@ -2,6 +2,7 @@
 const featureLabels: Record<string, string> = {
   task_summary: 'Task summaries',
   task_writing: 'Writing help',
+  task_chat: 'Task chat',
 }
 
 export const featureLabel = (feature: string) => featureLabels[feature] ?? feature
