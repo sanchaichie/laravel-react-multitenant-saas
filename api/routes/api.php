@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EmailVerificationController;
@@ -82,5 +83,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::get('/audit-log/actions', [AuditLogController::class, 'actions']);
+
+        // AI usage of one month, and the monthly AI budget (raising it spends money: 'verified').
+        Route::get('/ai-usage', [AiUsageController::class, 'index']);
+        Route::put('/ai-budget', [AiUsageController::class, 'updateBudget'])->middleware(['verified', 'throttle:20,1,ai-budget']);
     });
 });

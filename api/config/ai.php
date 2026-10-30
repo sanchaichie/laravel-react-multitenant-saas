@@ -30,6 +30,13 @@ return [
 
     'fallback_models' => ['claude-opus-5-5', 'claude-sonnet-5-5'],
 
+    /*
+    | Monthly AI budget in USD per organization (UTC month), unless the organization
+    | set its own (organizations.ai_monthly_budget_usd). 0 turns AI off; a blank
+    | value means the default, so an empty key doesn't switch AI off by accident.
+    */
+    'monthly_budget_usd' => (float) (filled(env('AI_MONTHLY_BUDGET_USD')) ? env('AI_MONTHLY_BUDGET_USD') : 5),
+
     // AI calls (and AI requests from the app) per organization per minute.
     'rate_limit_per_minute' => (int) env('AI_RATE_LIMIT_PER_MINUTE', 5),
 

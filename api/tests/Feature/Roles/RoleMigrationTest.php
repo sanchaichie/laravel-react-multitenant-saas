@@ -48,9 +48,10 @@ it('gives existing organizations the default roles and keeps everyone\'s role', 
         ->and($roleName($old, $oldOwner))->toBe('Owner')
         ->and(Role::withoutGlobalScopes()->where('organization_id', $old)->where('is_owner', true)->sole()->grants()->count())->toBeGreaterThan(0);
 
-    // With the migrations after it (audit_log.view for roles that manage members),
-    // the defaults match today's DefaultRole permissions.
+    // With the migrations after it (audit_log.view for roles that manage members, the
+    // AI permissions), the defaults match today's DefaultRole permissions.
     (require database_path('migrations/2026_10_30_120001_grant_audit_log_view.php'))->up();
+    (require database_path('migrations/2026_10_30_170001_grant_ai_permissions.php'))->up();
     $migrated = Role::withoutGlobalScopes()->where('organization_id', $old)->get()->keyBy('name');
     foreach (DefaultRole::cases() as $default) {
         expect($migrated[$default->label()]->permissions->all())->toBe($default->permissions());

@@ -4,6 +4,7 @@ use App\Enums\AuditAction;
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
 use App\Enums\TaskSummaryStatus;
+use App\Models\AiUsage;
 use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
@@ -161,5 +162,27 @@ function createSummary(Organization $organization, Task $task, TaskSummaryStatus
         $summary->save();
 
         return $summary;
+    });
+}
+
+/**
+ * An ai_usage row (an AI call) of the organization, as RecordingAiClient writes it.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function recordAiUsage(Organization $organization, float $costUsd, array $attributes = []): AiUsage
+{
+    return inOrganization($organization, function () use ($costUsd, $attributes) {
+        $usage = (new AiUsage)->forceFill(array_merge([
+            'feature' => 'task_summary',
+            'model' => 'claude-haiku-5-5',
+            'input_tokens' => 1000,
+            'output_tokens' => 200,
+            'cost_usd' => $costUsd,
+            'status' => 'succeeded',
+        ], $attributes));
+        $usage->save();
+
+        return $usage;
     });
 }

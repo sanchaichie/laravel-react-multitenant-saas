@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One AI call, written by RecordingAiClient. Nothing reads it yet (plan 11: budget and usage page).
+ * One AI call, written by RecordingAiClient. AiBudget sums its cost per month; AiUsageReport breaks it down.
  *
  * @property int $id
  * @property int $organization_id

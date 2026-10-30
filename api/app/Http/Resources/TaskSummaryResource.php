@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Actions\TaskSummaries\RequestTaskSummary;
+use App\Ai\Exceptions\AiBudgetExceeded;
 use App\Ai\Prompts\TaskSummaryPrompt;
 use App\Enums\TaskSummaryStatus;
 use App\Models\TaskSummary;
@@ -24,6 +25,7 @@ class TaskSummaryResource extends JsonResource
         'invalid_json' => 'The AI returned a summary we could not use.',
         'max_tokens' => 'The AI returned a summary we could not use.',
         'unavailable' => 'The AI service was unavailable. Try again later.',
+        'budget_exceeded' => AiBudgetExceeded::MESSAGE,
     ];
 
     /**

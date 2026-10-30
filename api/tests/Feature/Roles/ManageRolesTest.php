@@ -27,7 +27,7 @@ it('lists the roles, Owner first, with what they allow and how many have them', 
         ->and($roles[0]['is_owner'])->toBeTrue()
         ->and($roles[0]['permissions'])->toBe(array_map(fn (Permission $p) => $p->value, Permission::cases()))
         ->and($roles[0]['can'])->toBe(['update' => false, 'delete' => false])
-        ->and($roles[2]['permissions'])->toBe(['tasks.create'])
+        ->and($roles[2]['permissions'])->toBe(['tasks.create', 'ai.use'])
         ->and($roles[2]['can'])->toBe(['update' => true, 'delete' => true]);
 });
 

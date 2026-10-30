@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use LogicException;
 
 /**
+ * @property string|null $ai_monthly_budget_usd Own monthly AI budget (decimal string); null uses the default (AiBudget).
  * @property-read Membership|null $membership Set when loaded through User::organizations().
  */
 #[Fillable(['name'])]
@@ -20,6 +21,18 @@ class Organization extends Model
 {
     /** @use HasFactory<OrganizationFactory> */
     use HasFactory;
+
+    /**
+     * Not fillable: only UpdateAiBudget sets ai_monthly_budget_usd.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'ai_monthly_budget_usd' => 'decimal:2',
+        ];
+    }
 
     /**
      * @return BelongsToMany<User, $this, Membership, 'membership'>

@@ -15,6 +15,9 @@ enum Permission: string
     case MembersManage = 'members.manage';
     case RolesManage = 'roles.manage';
     case AuditLogView = 'audit_log.view';
+    case AiUse = 'ai.use';
+    case AiUsageView = 'ai_usage.view';
+    case AiBudgetManage = 'ai_budget.manage';
 
     public function label(): string
     {
@@ -25,6 +28,9 @@ enum Permission: string
             self::MembersManage => 'Change roles and remove members',
             self::RolesManage => 'Create, edit and delete roles',
             self::AuditLogView => 'View the audit log',
+            self::AiUse => 'Ask for AI summaries and help',
+            self::AiUsageView => 'View AI usage and the budget',
+            self::AiBudgetManage => 'Change the monthly AI budget',
         };
     }
 
@@ -35,6 +41,7 @@ enum Permission: string
             self::MembersInvite, self::MembersManage => 'Members',
             self::RolesManage => 'Roles',
             self::AuditLogView => 'Organization',
+            self::AiUse, self::AiUsageView, self::AiBudgetManage => 'AI',
         };
     }
 }

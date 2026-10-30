@@ -67,7 +67,7 @@ it('skips tasks whose creator left, can no longer edit them or isn\'t verified',
     $this->acme->members()->detach($leftUser);
 
     $this->artisan('ai:summarize-tasks')
-        ->expectsOutputToContain("queued 1, skipped 3 whose creator left, can't edit them or isn't verified.")
+        ->expectsOutputToContain("queued 1, skipped 3 whose creator left, can't edit them or use AI, or isn't verified.")
         ->assertSuccessful();
 
     expect(summarizedTaskIds())->toBe([$this->withText->id]);

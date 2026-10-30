@@ -3,6 +3,8 @@
 namespace App\Actions\TaskSummaries;
 
 use App\Actions\Audit\RecordAudit;
+use App\Ai\AiBudget;
+use App\Ai\Exceptions\AiBudgetExceeded;
 use App\Enums\AuditAction;
 use App\Enums\TaskSummaryStatus;
 use App\Jobs\GenerateTaskSummary;
@@ -20,7 +22,10 @@ class RequestTaskSummary
      */
     public const STALE_AFTER_MINUTES = 30;
 
-    public function __construct(private readonly RecordAudit $recordAudit) {}
+    public function __construct(
+        private readonly RecordAudit $recordAudit,
+        private readonly AiBudget $budget,
+    ) {}
 
     /**
      * Queue a new summary for a task of the current organization, or return the one
@@ -28,6 +33,8 @@ class RequestTaskSummary
      *
      * $source names a system trigger ("backfill"): the requester is still recorded
      * (and billed in ai_usage), but the audit entry has no actor, since they didn't act.
+     *
+     * @throws AiBudgetExceeded when a new one would start and the monthly budget is used up
      */
     public function handle(Task $task, ?User $requester, ?string $source = null): TaskSummary
     {
@@ -41,6 +48,9 @@ class RequestTaskSummary
             if ($pending !== null && $pending->created_at->gt(now()->subMinutes(self::STALE_AFTER_MINUTES))) {
                 return [$pending, false];
             }
+
+            // Nothing is queued that couldn't run (the job checks again before calling).
+            $this->budget->ensureAvailable();
 
             // Only if still pending: a late job may have just made it a draft (retired below).
             if ($pending !== null) {

@@ -23,6 +23,7 @@ enum AuditAction: string
     case SummaryRequested = 'summary.requested';
     case SummaryApproved = 'summary.approved';
     case SummaryRejected = 'summary.rejected';
+    case AiBudgetUpdated = 'ai_budget.updated';
 
     public function label(): string
     {
@@ -42,13 +43,14 @@ enum AuditAction: string
             self::SummaryRequested => 'Requested a task summary',
             self::SummaryApproved => 'Approved a task summary',
             self::SummaryRejected => 'Rejected a task summary',
+            self::AiBudgetUpdated => 'Changed the AI budget',
         };
     }
 
     public function group(): string
     {
         return match ($this) {
-            self::OrganizationCreated => 'Organization',
+            self::OrganizationCreated, self::AiBudgetUpdated => 'Organization',
             self::MemberInvited, self::InvitationRevoked, self::MemberJoined,
             self::MemberRoleChanged, self::MemberRemoved => 'Members',
             self::RoleCreated, self::RoleUpdated, self::RoleDeleted => 'Roles',

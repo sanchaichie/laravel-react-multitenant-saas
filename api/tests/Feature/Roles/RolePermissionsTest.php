@@ -58,22 +58,22 @@ it('never lets anyone edit or delete the owner role', function () {
 });
 
 it('lets a role manager grant only permissions they have', function () {
-    roleManager([Permission::TasksCreate]);
+    roleManager([Permission::TasksCreate, Permission::AiUse]);
 
     $this->postJson('/api/roles', ['name' => 'Writer', 'permissions' => ['tasks.create']])->assertCreated();
     $this->postJson('/api/roles', ['name' => 'Inviter', 'permissions' => ['members.invite']])->assertForbidden();
     $this->patchJson("/api/roles/{$this->member->id}", ['name' => 'Member', 'permissions' => ['tasks.manage']])->assertForbidden();
 
     expect(Role::query()->where('name', 'Inviter')->exists())->toBeFalse()
-        ->and($this->member->fresh()->permissions->all())->toBe([Permission::TasksCreate]);
+        ->and($this->member->fresh()->permissions->all())->toBe([Permission::TasksCreate, Permission::AiUse]);
 });
 
 it('lets a role manager change only roles that can do strictly less', function () {
-    $mine = roleManager([Permission::TasksCreate]);
-    $peer = createRole($this->organization, 'Peer', [Permission::RolesManage, Permission::TasksCreate]);
+    $mine = roleManager([Permission::TasksCreate, Permission::AiUse]);
+    $peer = createRole($this->organization, 'Peer', [Permission::RolesManage, Permission::TasksCreate, Permission::AiUse]);
     $viewer = createRole($this->organization, 'Viewer');
 
-    // Member (tasks.create) and Viewer (nothing) can do less.
+    // Member (tasks.create, ai.use) and Viewer (nothing) can do less.
     $this->patchJson("/api/roles/{$this->member->id}", ['name' => 'Member', 'permissions' => []])->assertOk();
     $this->deleteJson("/api/roles/{$viewer->id}")->assertNoContent();
 
@@ -85,7 +85,7 @@ it('lets a role manager change only roles that can do strictly less', function (
 });
 
 it('tells the app which roles the requesting user may change', function () {
-    roleManager([Permission::TasksCreate]);
+    roleManager([Permission::TasksCreate, Permission::AiUse]);
 
     $can = collect($this->getJson('/api/roles')->assertOk()->json('data'))->pluck('can', 'name');
 
@@ -97,7 +97,7 @@ it('tells the app which roles the requesting user may change', function () {
 
 it('lets a custom role assign and invite only roles it includes', function () {
     Mail::fake();
-    $lead = createRole($this->organization, 'Lead', [Permission::TasksCreate, Permission::MembersInvite, Permission::MembersManage]);
+    $lead = createRole($this->organization, 'Lead', [Permission::TasksCreate, Permission::AiUse, Permission::MembersInvite, Permission::MembersManage]);
     Sanctum::actingAs(addMember($this->organization, $lead));
     $ana = addMember($this->organization);
 
