@@ -21,7 +21,7 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 09 | [Audit trail](09-audit-trail.md) | Done | 11 |
 | 10 | [AI layer and task summaries](10-ai-layer-task-summaries.md) | Done | 09, 14 |
 | 11 | [AI usage, budget and `ai.use`](11-ai-usage-budget.md) | Done | 13 |
-| 12 | Streaming and AI writing help | Not planned yet | 15 |
+| 12 | [Streaming and AI writing help](12-ai-streaming-writing-help.md) | Done | 15 |
 | 13 | Task chat | Not planned yet | 16 |
 | 14 | Account basics | Not planned yet | 22 |
 | 15 | Two-factor authentication | Not planned yet | 24 |
