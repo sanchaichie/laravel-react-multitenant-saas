@@ -16,6 +16,7 @@ use App\Support\CurrentOrganization;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /*
@@ -185,4 +186,21 @@ function recordAiUsage(Organization $organization, float $costUsd, array $attrib
 
         return $usage;
     });
+}
+
+/**
+ * The server-sent events in a streamed response, in order.
+ *
+ * @return list<array{event: string, data: array<string, mixed>}>
+ */
+function sseEvents(TestResponse $response): array
+{
+    $events = [];
+
+    foreach (array_filter(explode("\n\n", $response->streamedContent())) as $block) {
+        preg_match('/^event: (.+)\ndata: (.+)$/s', $block, $match);
+        $events[] = ['event' => $match[1], 'data' => json_decode($match[2], true)];
+    }
+
+    return $events;
 }

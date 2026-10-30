@@ -212,6 +212,11 @@ it('does not overwrite a summary that was given up on while the job ran', functi
 
             return new AiResponse('{}', ['summary' => 'Late', 'key_points' => []], 'fake-model', 1, 1, 'end_turn');
         }
+
+        public function stream(AiRequest $request, Closure $onText): AiResponse
+        {
+            throw new LogicException('Not streamed.');
+        }
     });
 
     GenerateTaskSummary::dispatch($this->acme->id, $summary->id);

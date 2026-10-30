@@ -37,6 +37,8 @@ class TaskResource extends JsonResource
             'can' => [
                 'update' => $gate->allows('update', $this->resource),
                 'delete' => $gate->allows('delete', $this->resource),
+                // The route also needs a verified email: no button that would only get a 403.
+                'write_with_ai' => (bool) $request->user()?->hasVerifiedEmail() && $gate->allows('writeWithAi', $this->resource),
             ],
         ];
     }

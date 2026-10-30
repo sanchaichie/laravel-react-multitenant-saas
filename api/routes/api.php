@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TaskSummaryController;
+use App\Http\Controllers\Api\TaskWritingHelpController;
 use Illuminate\Support\Facades\Route;
 
 // Separate counters, so failed logins don't use up registrations. 'login' is per
@@ -68,6 +69,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/tasks', [TaskController::class, 'store']);
             Route::patch('/tasks/{task}', [TaskController::class, 'update'])->where('task', '[0-9]{1,18}');
             Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->where('task', '[0-9]{1,18}');
+        });
+
+        // AI writing help for the task form, streamed (server-sent events). An AI call:
+        // it costs money ('verified') and is limited per organization ('ai').
+        Route::middleware(['verified', 'throttle:ai'])->group(function () {
+            Route::post('/tasks/writing-help', [TaskWritingHelpController::class, 'store']);
+            Route::post('/tasks/{task}/writing-help', [TaskWritingHelpController::class, 'update'])->where('task', '[0-9]{1,18}');
         });
 
         // AI summaries. {summary} must belong to {task} (scoped bindings); asking for a

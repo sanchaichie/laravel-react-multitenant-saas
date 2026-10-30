@@ -22,6 +22,22 @@ return [
 
     'max_tokens' => 4000,
 
+    // Seconds for a whole streamed answer (writing help, chat). It holds a PHP worker
+    // until it ends, so at most concurrent_streams run at once per organization.
+    'stream_timeout' => (int) env('AI_STREAM_TIMEOUT', 120),
+
+    // Streams running at once: per organization, per user (across organizations), and on
+    // the whole server, kept below the PHP workers (PHP_CLI_SERVER_WORKERS=4 locally) so
+    // other requests always get one.
+    'concurrent_streams' => 2,
+
+    'concurrent_streams_per_user' => 2,
+
+    'max_concurrent_streams' => (int) env('AI_MAX_CONCURRENT_STREAMS', 3),
+
+    // AI_PROVIDER=fake only: pause between streamed pieces, to watch them arrive (e2e).
+    'fake_stream_delay_ms' => (int) env('AI_FAKE_STREAM_DELAY_MS', 0),
+
     /*
     | Server-side refusal fallback: "default", or empty to turn it off. Only sent
     | for the models listed below (Haiku doesn't support it).

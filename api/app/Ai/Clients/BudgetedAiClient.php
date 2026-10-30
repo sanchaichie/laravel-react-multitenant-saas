@@ -8,6 +8,7 @@ use App\Ai\AiResponse;
 use App\Ai\Contracts\AiClient;
 use App\Exceptions\NoCurrentOrganization;
 use App\Support\CurrentOrganization;
+use Closure;
 
 /**
  * Refuses calls once the current organization's monthly budget is used up
@@ -24,9 +25,21 @@ class BudgetedAiClient implements AiClient
 
     public function generate(AiRequest $request): AiResponse
     {
-        $organization = $this->currentOrganization->get() ?? throw NoCurrentOrganization::forAiCall();
-        $this->budget->ensureAvailable($organization);
+        $this->ensureAllowed();
 
         return $this->inner->generate($request);
+    }
+
+    public function stream(AiRequest $request, Closure $onText): AiResponse
+    {
+        $this->ensureAllowed();
+
+        return $this->inner->stream($request, $onText);
+    }
+
+    private function ensureAllowed(): void
+    {
+        $organization = $this->currentOrganization->get() ?? throw NoCurrentOrganization::forAiCall();
+        $this->budget->ensureAvailable($organization);
     }
 }

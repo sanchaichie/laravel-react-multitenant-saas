@@ -39,6 +39,14 @@ class TaskPolicy
             || ($this->currentOrganization->can(Permission::TasksCreate) && in_array($user->id, [$task->created_by, $task->assignee_id], true));
     }
 
+    // AI writing help for a task's description: in the create form (no task) or the
+    // edit form of one you may edit. It's AI work, so it also needs ai.use.
+    public function writeWithAi(User $user, ?Task $task = null): bool
+    {
+        return $this->currentOrganization->can(Permission::AiUse)
+            && ($task === null ? $this->create($user) : $this->update($user, $task));
+    }
+
     public function delete(User $user, Task $task): bool
     {
         return $this->currentOrganization->can(Permission::TasksManage)

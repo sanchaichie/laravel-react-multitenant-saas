@@ -48,11 +48,12 @@ class AppServiceProvider extends ServiceProvider
                 config('ai.max_tokens'),
                 config('ai.fallbacks'),
                 config('ai.fallback_models'),
+                config('ai.stream_timeout'),
             ),
             // Tests bind their own instance (TestCase) to push responses and inspect requests.
             'fake' => $app->bound(FakeAiClient::class)
                 ? $app->make(FakeAiClient::class)
-                : new FakeAiClient(config('ai.model')),
+                : new FakeAiClient(config('ai.model'), config('ai.fake_stream_delay_ms')),
             default => throw new InvalidArgumentException('Unknown AI provider ['.config('ai.provider').'].'),
         });
     }
