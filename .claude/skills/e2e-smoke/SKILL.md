@@ -15,7 +15,7 @@ Flow to check: $ARGUMENTS
 .claude/skills/e2e-smoke/servers.sh start --mail    # same, and emails are sent at once (sync queue) to the log, with links to :5112
 ```
 - Use `--mail` whenever the flow sends email (verification, password reset, invitations). It doesn't need the developer's `queue:work`, and doesn't touch `.env`. It runs **every** queued job inline (AI summaries, webhooks too), so retries and backoff aren't exercised, and a failing job shows as a 500 on the request. With it an AI summary is already a draft when the task page opens (no "Generating…" step).
-- The API always runs with `AI_PROVIDER=fake`: canned AI answers, no key, nothing spent. Without `--mail`, jobs go to the `e2e` queue, so your own `queue:work` (maybe with a real key) never runs them; process them with `cd api && AI_PROVIDER=fake php artisan queue:work --queue=e2e`.
+- The API always runs with `AI_PROVIDER=fake`: canned AI answers, no key, nothing spent. Streamed answers (writing help) arrive word by word, 60 ms apart (`AI_FAKE_STREAM_DELAY_MS=60`), so you can watch them and press Stop. Without `--mail`, jobs go to the `e2e` queue, so your own `queue:work` (maybe with a real key) never runs them; process them with `cd api && AI_PROVIDER=fake php artisan queue:work --queue=e2e`.
 - Without `web/` (before plan 03), `start` runs the API alone and says so; check with curl only.
 - :8100 and :5173 are the developer's own `artisan serve` and `npm run dev`; :8000/:3000 and :8011/:3011 belong to saas-starter. Never stop or reuse those ports.
 - The servers use the dev database (`react_saas`), so every account you create must be `e2e-<something>@example.com`. Cleanup only deletes those.

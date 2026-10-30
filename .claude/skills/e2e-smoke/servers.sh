@@ -99,7 +99,7 @@ start() {
   # mail.sh refuses to run without this marker, so a run started without --mail fails loudly instead of finding no emails.
   if [ ${#mail_env[@]} -gt 0 ]; then touch "$state/mail"; else rm -f "$state/mail"; fi
   if [ -f "$log" ]; then wc -l <"$log" | tr -d ' ' >"$state/log.start"; else echo 0 >"$state/log.start"; fi
-  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} ${queue_env[@]+"${queue_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" AI_PROVIDER=fake PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
+  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} ${queue_env[@]+"${queue_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" AI_PROVIDER=fake AI_FAKE_STREAM_DELAY_MS=60 PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
     ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
   if [ "$has_web" = 1 ]; then
     (cd "$root/web" && nohup npx vite preview --outDir dist-e2e --host 127.0.0.1 --port "$WEB_PORT" --strictPort \
