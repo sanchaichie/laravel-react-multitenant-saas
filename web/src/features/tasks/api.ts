@@ -72,8 +72,10 @@ export function useUpdateTask() {
     onMutate: () => ({ organizationId }),
     onSuccess: ({ data }, _body, context) => {
       // The answer is the saved task: put it straight into the detail query (no refetch),
-      // and let the lists refetch, since it may now sort or filter differently.
+      // and let the lists refetch, since it may now sort or filter differently. Its AI
+      // summary refetches too: a new title or description makes it stale.
       queryClient.setQueryData(taskQuery(context.organizationId ?? 0, data.id).queryKey, { data })
+      void queryClient.invalidateQueries({ queryKey: [...taskQuery(context.organizationId ?? 0, data.id).queryKey, 'summary'] })
       return queryClient.invalidateQueries({ queryKey: ['org', context.organizationId, 'tasks', 'list'] })
     },
   })

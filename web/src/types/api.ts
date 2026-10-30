@@ -166,6 +166,44 @@ export interface Task {
   can: { update: boolean; delete: boolean }
 }
 
+/** pending (being generated) → draft (waiting for review) → approved or rejected; failed when it couldn't be generated. */
+export type TaskSummaryStatus = 'pending' | 'draft' | 'approved' | 'rejected' | 'failed'
+
+/** An AI summary of a task. Approving never changes the task. */
+export interface TaskSummary {
+  id: number
+  task_id: number
+  status: TaskSummaryStatus
+  summary: string | null
+  key_points: string[]
+  /** The model that wrote it (null while pending). */
+  model: string | null
+  /** The task's title or description changed since it was written. */
+  stale: boolean
+  /** Pending for so long the job is likely lost: asking again replaces it. */
+  stuck: boolean
+  /** A short, generic reason, only when failed. */
+  error: string | null
+  requested_by: TaskPerson | null
+  reviewed_by: TaskPerson | null
+  reviewed_at: string | null
+  created_at: string
+  can: { review: boolean }
+}
+
+/** GET /api/tasks/{id}/summary: the latest summary (any status), and the approved one, which is the task's summary until a newer one is approved. */
+export interface TaskSummaryResponse {
+  data: TaskSummary | null
+  approved: TaskSummary | null
+  can: { regenerate: boolean }
+}
+
+/** Edits sent with an approval; a field left out keeps the AI's text. */
+export interface TaskSummaryEdits {
+  summary?: string
+  key_points?: string[]
+}
+
 /** What create sends; update (PATCH) sends only the fields changed in the form. */
 export interface TaskPayload {
   title: string

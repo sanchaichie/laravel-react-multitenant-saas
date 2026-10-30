@@ -17,6 +17,8 @@ export function metadataFacts(metadata: AuditLog['metadata']): [string, string][
   if (typeof metadata.unassigned_tasks === 'number' && metadata.unassigned_tasks > 0) {
     facts.push(['Tasks unassigned', String(metadata.unassigned_tasks)])
   }
+  if (metadata.edited === true) facts.push(['Edits', 'Edited before approving'])
+  if (metadata.source === 'backfill') facts.push(['How', 'Requested by the ai:summarize-tasks command'])
   return facts
 }
 

@@ -1,4 +1,4 @@
-import type { Member, Paginated, Task } from '@/types/api'
+import type { Member, Paginated, Task, TaskSummary, TaskSummaryResponse } from '@/types/api'
 import { ada, adminRole, memberRole, ownerRole } from './utils'
 
 let nextId = 100
@@ -53,3 +53,28 @@ export const mia: Member = {
   assignable_roles: [adminRole],
   can: { update: true, delete: true },
 }
+
+/** A task summary as the API returns it: a reviewable draft of task 42 unless overridden. */
+export function makeTaskSummary(overrides: Partial<TaskSummary> = {}): TaskSummary {
+  const id = overrides.id ?? nextId++
+  return {
+    id,
+    task_id: 42,
+    status: 'draft',
+    summary: 'Write the onboarding doc for new hires.',
+    key_points: ['Cover the first week', 'Link the handbook'],
+    model: 'claude-haiku-5-5',
+    stale: false,
+    stuck: false,
+    error: null,
+    requested_by: { id: ada.id, name: ada.name },
+    reviewed_by: null,
+    reviewed_at: null,
+    created_at: '2026-10-21T12:00:00.000000Z',
+    can: { review: true },
+    ...overrides,
+  }
+}
+
+/** GET /api/tasks/{id}/summary for a task that has none yet (and you may ask for one). */
+export const noSummary: TaskSummaryResponse = { data: null, approved: null, can: { regenerate: true } }

@@ -12,6 +12,7 @@ import { useDeleteTask, useTask, useUpdateTask } from '@/features/tasks/api'
 import { TASK_STATUSES, statusLabel } from '@/features/tasks/filters'
 import { OverdueBadge, TaskPriorityBadge, TaskStatusBadge } from '@/features/tasks/TaskBadges'
 import { TaskFormDialog } from '@/features/tasks/TaskFormDialog'
+import { TaskSummaryCard } from '@/features/taskSummaries/TaskSummaryCard'
 import { ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { formatDate } from '@/lib/format'
@@ -135,22 +136,25 @@ function TaskDetails({ task }: { task: Task }) {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2>Description</h2>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {task.description ? (
-              // Plain text, line breaks kept: user content is never rendered as HTML.
-              <p className="text-sm break-words whitespace-pre-wrap">{task.description}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">No description.</p>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_18rem]">
+        <div className="grid min-w-0 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <h2>Description</h2>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {task.description ? (
+                // Plain text, line breaks kept: user content is never rendered as HTML.
+                <p className="text-sm break-words whitespace-pre-wrap">{task.description}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">No description.</p>
+              )}
+            </CardContent>
+          </Card>
+          <TaskSummaryCard task={task} />
+        </div>
 
         <Card>
           <CardContent>

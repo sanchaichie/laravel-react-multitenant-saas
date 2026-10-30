@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { makeTask, meMember, mia, taskPage } from '@/test/tasks'
+import { makeTask, meMember, mia, noSummary, taskPage } from '@/test/tasks'
 import { acme, ada, beta, memberRole, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
 import type { Task } from '@/types/api'
 
@@ -21,6 +21,7 @@ function api(overrides: Record<string, Handler> = {}) {
     'GET /api/organizations': () => jsonResponse(organizationList([acme, beta])),
     'GET /api/members': () => jsonResponse({ data: [meMember, mia] }),
     'GET /api/tasks/42': () => jsonResponse({ data: task }),
+    'GET /api/tasks/42/summary': () => jsonResponse(noSummary),
     ...overrides,
   })
 }
