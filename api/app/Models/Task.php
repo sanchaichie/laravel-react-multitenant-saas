@@ -120,6 +120,17 @@ class Task extends Model
     }
 
     /**
+     * Every member's chat about this task: only for cleanup and tests. Read one
+     * person's with TaskChatMessage::conversation().
+     *
+     * @return HasMany<TaskChatMessage, $this>
+     */
+    public function chatMessages(): HasMany
+    {
+        return $this->hasMany(TaskChatMessage::class);
+    }
+
+    /**
      * The task's summary as shown, until a newer one is approved (at most one, by index).
      *
      * @return HasOne<TaskSummary, $this>

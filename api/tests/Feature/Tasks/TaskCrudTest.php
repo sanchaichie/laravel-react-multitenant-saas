@@ -27,7 +27,7 @@ it('creates a task with defaults, created_by and a TaskCreated event', function 
         ->assertJsonPath('data.is_overdue', false)
         ->assertJsonPath('data.assignee', null)
         ->assertJsonPath('data.creator.id', $this->owner->id)
-        ->assertJsonPath('data.can', ['update' => true, 'delete' => true, 'write_with_ai' => true]);
+        ->assertJsonPath('data.can', ['update' => true, 'delete' => true, 'write_with_ai' => true, 'chat' => true]);
 
     $task = inOrganization($this->organization, fn () => Task::findOrFail($response->json('data.id')));
     expect($task->created_by)->toBe($this->owner->id)

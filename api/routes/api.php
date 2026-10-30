@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\TaskChatController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TaskSummaryController;
 use App\Http\Controllers\Api\TaskWritingHelpController;
@@ -76,6 +77,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::middleware(['verified', 'throttle:ai'])->group(function () {
             Route::post('/tasks/writing-help', [TaskWritingHelpController::class, 'store']);
             Route::post('/tasks/{task}/writing-help', [TaskWritingHelpController::class, 'update'])->where('task', '[0-9]{1,18}');
+        });
+
+        // Your own private AI chat about a task: sending streams (server-sent events), costs
+        // money ('verified') and is limited per organization ('ai').
+        Route::where(['task' => '[0-9]{1,18}'])->group(function () {
+            Route::get('/tasks/{task}/chat', [TaskChatController::class, 'index'])->middleware('throttle:120,1,task-chat-read');
+            Route::post('/tasks/{task}/chat', [TaskChatController::class, 'store'])->middleware(['verified', 'throttle:ai']);
+            Route::delete('/tasks/{task}/chat', [TaskChatController::class, 'destroy'])->middleware('throttle:60,1,task-chat');
         });
 
         // AI summaries. {summary} must belong to {task} (scoped bindings); asking for a

@@ -113,7 +113,7 @@ it('lets a viewer read tasks but not write them, even one assigned to them', fun
     $task = inOrganization($this->organization, fn () => Task::factory()->assignedTo($user)->createdBy($user)->create());
     Sanctum::actingAs($user);
 
-    $this->getJson('/api/tasks')->assertOk()->assertJsonPath('data.0.can', ['update' => false, 'delete' => false, 'write_with_ai' => false]);
+    $this->getJson('/api/tasks')->assertOk()->assertJsonPath('data.0.can', ['update' => false, 'delete' => false, 'write_with_ai' => false, 'chat' => false]);
     $this->getJson("/api/tasks/{$task->id}")->assertOk();
     $this->postJson('/api/tasks', ['title' => 'Nope'])->assertForbidden();
     $this->patchJson("/api/tasks/{$task->id}", ['status' => 'done'])->assertForbidden();

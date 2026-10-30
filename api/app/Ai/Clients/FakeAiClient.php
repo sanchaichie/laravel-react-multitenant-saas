@@ -155,6 +155,8 @@ class FakeAiClient implements AiClient
         $text = match ($request->feature) {
             'task_writing' => 'A clearer description of the task, written by the fake AI client. It keeps the meaning of '
                 .'the draft, fixes the wording, and lists what needs to happen next so the team knows where to start.',
+            'task_chat' => 'Here is what I can tell from the task: the description lists the steps that are left, '
+                .'so start with the first one and check the due date. This answer comes from the fake AI client.',
             default => 'Fake streamed response',
         };
 

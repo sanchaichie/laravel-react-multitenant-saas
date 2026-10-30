@@ -2,16 +2,20 @@
 
 use App\Ai\AiRequest;
 use App\Ai\AiResponse;
+use App\Ai\AiStreamSlots;
 use App\Ai\Clients\AnthropicClient;
 use App\Ai\Contracts\AiClient;
 use App\Ai\Exceptions\AiBudgetExceeded;
 use App\Ai\Exceptions\AiRequestFailed;
 use App\Ai\Exceptions\AiUnavailable;
 use App\Exceptions\NoCurrentOrganization;
+use App\Http\Responses\AiEventStream;
 use App\Models\AiUsage;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 
 function streamingClient(): AnthropicClient
 {
@@ -231,4 +235,24 @@ it('refuses to stream outside any organization', function () {
         ->toThrow(NoCurrentOrganization::class);
 
     $this->ai->assertNothingSent();
+});
+
+it('reports a failing onEnd hook and still sends the last event', function () {
+    [$user, $acme] = userInOrganization();
+    Exceptions::fake();
+    $this->ai->pushStream(['Fine']);
+    $stream = new AiEventStream(
+        $acme,
+        app(AiStreamSlots::class)->acquire($acme, $user),
+        textRequest(),
+        onEnd: fn () => throw new RuntimeException('hook broke'),
+    );
+
+    $response = TestResponse::fromBaseResponse($stream->toResponse(request()));
+
+    expect(sseEvents($response))->toBe([
+        ['event' => 'delta', 'data' => ['text' => 'Fine']],
+        ['event' => 'done', 'data' => ['model' => config('ai.model')]],
+    ]);
+    Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'hook broke');
 });

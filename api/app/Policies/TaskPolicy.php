@@ -47,6 +47,12 @@ class TaskPolicy
             && ($task === null ? $this->create($user) : $this->update($user, $task));
     }
 
+    // Your own private AI chat about a task you can see (reading, asking, clearing).
+    public function chat(User $user, Task $task): bool
+    {
+        return $this->view($user, $task) && $this->currentOrganization->can(Permission::AiUse);
+    }
+
     public function delete(User $user, Task $task): bool
     {
         return $this->currentOrganization->can(Permission::TasksManage)

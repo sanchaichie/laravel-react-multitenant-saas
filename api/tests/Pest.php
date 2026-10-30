@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\AuditAction;
+use App\Enums\ChatMessageRole;
+use App\Enums\ChatMessageStatus;
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
 use App\Enums\TaskSummaryStatus;
@@ -10,6 +12,7 @@ use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Role;
 use App\Models\Task;
+use App\Models\TaskChatMessage;
 use App\Models\TaskSummary;
 use App\Models\User;
 use App\Support\CurrentOrganization;
@@ -203,4 +206,25 @@ function sseEvents(TestResponse $response): array
     }
 
     return $events;
+}
+
+/**
+ * A chat message written directly (no AI call).
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createChatMessage(Organization $organization, Task $task, User $user, ChatMessageRole $role, string $content, array $attributes = []): TaskChatMessage
+{
+    return inOrganization($organization, function () use ($task, $user, $role, $content, $attributes) {
+        $message = new TaskChatMessage;
+        $message->forceFill(array_merge([
+            'task_id' => $task->id,
+            'user_id' => $user->id,
+            'role' => $role,
+            'content' => $content,
+            'status' => ChatMessageStatus::Complete,
+        ], $attributes))->save();
+
+        return $message;
+    });
 }
