@@ -45,7 +45,7 @@ Use the helpers from `tests/Pest.php`: `userInOrganization()`, `addMember()`, `i
   - uniqueness per organization;
   - pagination and search;
   - events (`Event::fake`);
-  - audit entries for create, update and delete (`auditLogOf($org)`);
+  - audit entries for create, update and delete (`auditEntries($org, AuditAction::...)`; jsonb reorders keys, so compare `changes` with `toEqual`);
   - 401 without login and 403 without a current organization.
 - Prove the tests catch mistakes: temporarily remove the trait or make the policy allow everything, confirm tests fail, then restore it.
 

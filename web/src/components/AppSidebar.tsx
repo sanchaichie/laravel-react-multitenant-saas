@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { LayoutDashboardIcon, ListTodoIcon, ShieldIcon, UsersIcon } from 'lucide-react'
+import { LayoutDashboardIcon, ListTodoIcon, ScrollTextIcon, ShieldIcon, UsersIcon } from 'lucide-react'
 import { NavLink, useMatch } from 'react-router'
 import {
   Sidebar,
@@ -17,11 +17,15 @@ import {
 } from '@/components/ui/sidebar'
 import { UserMenu } from '@/components/UserMenu'
 import { OrganizationSwitcher } from '@/features/organizations/OrganizationSwitcher'
+import { useCurrentOrganization } from '@/stores/auth'
+import type { Permission } from '@/types/api'
 
 interface NavItem {
   to: string
   label: string
   icon: ComponentType<{ 'aria-hidden'?: boolean }>
+  /** Shown only to roles with it (the page itself also checks, and the API decides). */
+  permission?: Permission
 }
 
 const navigation: NavItem[] = [
@@ -29,9 +33,15 @@ const navigation: NavItem[] = [
   { to: '/tasks', label: 'Tasks', icon: ListTodoIcon },
   { to: '/members', label: 'Members', icon: UsersIcon },
   { to: '/roles', label: 'Roles', icon: ShieldIcon },
+  { to: '/audit-log', label: 'Audit log', icon: ScrollTextIcon, permission: 'audit_log.view' },
 ]
 
 export function AppSidebar() {
+  // Filtered during render from the current organization's permissions (a computed
+  // feeding v-for): nothing stored, so switching organization updates it by itself.
+  const permissions = useCurrentOrganization()?.permissions ?? []
+  const items = navigation.filter((item) => !item.permission || permissions.includes(item.permission))
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -42,7 +52,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => (
+              {items.map((item) => (
                 <NavItemLink key={item.to} item={item} />
               ))}
             </SidebarMenu>

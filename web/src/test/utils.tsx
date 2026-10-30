@@ -17,7 +17,7 @@ export const acme: Organization = {
   id: 10,
   name: 'Acme',
   role: ownerRole,
-  permissions: ['tasks.create', 'tasks.manage', 'members.invite', 'members.manage', 'roles.manage'],
+  permissions: ['tasks.create', 'tasks.manage', 'members.invite', 'members.manage', 'roles.manage', 'audit_log.view'],
   created_at: '2026-10-01T12:00:00.000000Z',
 }
 export const beta: Organization = {

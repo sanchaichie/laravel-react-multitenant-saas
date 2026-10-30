@@ -1,0 +1,26 @@
+import type { AuditLog } from '@/types/api'
+
+// What AuditDetails shows, kept out of the component file (fast refresh wants
+// component files to export only components).
+
+/** A person or role, kept by name ({id, name}). */
+export function isNamed(value: unknown): value is { name: string | null } {
+  return typeof value === 'object' && value !== null && 'name' in value
+}
+
+/** The metadata worth showing, as [label, text] pairs. */
+export function metadataFacts(metadata: AuditLog['metadata']): [string, string][] {
+  const facts: [string, string][] = []
+  if (typeof metadata.email === 'string') facts.push(['Email', metadata.email])
+  if (isNamed(metadata.role)) facts.push(['Role', metadata.role.name ?? '—'])
+  if (metadata.left === true) facts.push(['How', 'Left the organization'])
+  if (typeof metadata.unassigned_tasks === 'number' && metadata.unassigned_tasks > 0) {
+    facts.push(['Tasks unassigned', String(metadata.unassigned_tasks)])
+  }
+  return facts
+}
+
+/** Whether there's anything to show in the details. */
+export function hasDetails(entry: AuditLog): boolean {
+  return Object.keys(entry.changes).length > 0 || metadataFacts(entry.metadata).length > 0 || Boolean(entry.ip_address)
+}

@@ -1,7 +1,13 @@
 // Shapes of the Laravel API's requests and responses (api/app/Http/Resources).
 
 /** What a role allows (App\\Enums\\Permission). Only for showing controls: the API decides. */
-export type Permission = 'tasks.create' | 'tasks.manage' | 'members.invite' | 'members.manage' | 'roles.manage'
+export type Permission =
+  | 'tasks.create'
+  | 'tasks.manage'
+  | 'members.invite'
+  | 'members.manage'
+  | 'roles.manage'
+  | 'audit_log.view'
 
 /** A role where something has one (you, a member, an invitation). Roles are per organization. */
 export interface Role {
@@ -180,4 +186,44 @@ export interface TaskFilters {
   search?: string
   sort?: TaskSort
   page?: number
+}
+
+/** A page of a cursor-paginated list ("Load more"): no totals, just the next cursor. */
+export interface CursorPage<T> {
+  data: T[]
+  meta: { next_cursor: string | null; prev_cursor: string | null; per_page: number; path: string }
+}
+
+/** One audit log entry (GET /api/audit-logs). Values are user content: render as text. */
+export interface AuditLog {
+  id: number
+  /** e.g. "task.updated" (App\\Enums\\AuditAction). */
+  action: string
+  action_label: string
+  /** Null for something no logged-in user did, or once they've deleted their account. */
+  actor: { id: number; name: string } | null
+  /** What it was about, with its name at the time (it may be gone since). */
+  subject: { type: string; id: number | null; label: string | null } | null
+  changes: Record<string, { old: unknown; new: unknown }>
+  metadata: Record<string, unknown>
+  /** Only for owners. */
+  ip_address?: string | null
+  created_at: string
+}
+
+/** One entry of the action catalogue (GET /api/audit-log/actions). */
+export interface AuditActionInfo {
+  value: string
+  label: string
+  group: string
+}
+
+/** The audit log's filters, as in the URL and GET /api/audit-logs. */
+export interface AuditFilters {
+  action?: string
+  /** A member's id. */
+  actor?: string
+  /** Days (YYYY-MM-DD), read in the API's time zone. */
+  from?: string
+  to?: string
 }
