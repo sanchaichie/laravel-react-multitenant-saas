@@ -22,7 +22,7 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 10 | [AI layer and task summaries](10-ai-layer-task-summaries.md) | Done | 09, 14 |
 | 11 | [AI usage, budget and `ai.use`](11-ai-usage-budget.md) | Done | 13 |
 | 12 | [Streaming and AI writing help](12-ai-streaming-writing-help.md) | Done | 15 |
-| 13 | Task chat | Not planned yet | 16 |
+| 13 | [Task chat](13-task-chat.md) | Done | 16 |
 | 14 | Account basics | Not planned yet | 22 |
 | 15 | Two-factor authentication | Not planned yet | 24 |
 | 16 | Stripe billing and invoices | Not planned yet | 18, 19, 20 |
