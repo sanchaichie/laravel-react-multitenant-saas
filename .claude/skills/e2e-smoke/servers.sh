@@ -7,6 +7,8 @@
 #            for streaming) and `vite preview` on :5112, wait until both answer.
 #            Records where laravel.log ends, so errors and mail.sh only read this run.
 #            --mail: send emails straight away (sync queue) to the log, with links to :5112; read them with mail.sh
+#            AI always uses the fake provider (AI_PROVIDER=fake): no key needed, nothing spent. Without --mail, jobs go to
+#            the `e2e` queue, never the developer's own worker (which may have a real key).
 #   stop     stop both
 #   cleanup  delete <prefix>*@example.com users (prefix starts with e2e-, default e2e-), their tokens and organizations only they belong to
 #   errors   ERROR and worse entries in laravel.log since start (not from Pest runs), or "none"
@@ -67,9 +69,10 @@ stop() {
 }
 
 start() {
-  local php mail_env=()
+  # Without --mail, jobs wait on the `e2e` queue: never picked up by the developer's own worker.
+  local php mail_env=() queue_env=(DB_QUEUE=e2e)
   case "${1:-}" in
-    --mail) mail_env=(QUEUE_CONNECTION=sync MAIL_MAILER=log) ;;  # every queued job runs inline, not only mail
+    --mail) mail_env=(QUEUE_CONNECTION=sync MAIL_MAILER=log); queue_env=() ;;  # every queued job runs inline, not only mail
     "") ;;
     *) echo "Unknown option: $1 (only --mail)" >&2; exit 1 ;;
   esac
@@ -96,7 +99,7 @@ start() {
   # mail.sh refuses to run without this marker, so a run started without --mail fails loudly instead of finding no emails.
   if [ ${#mail_env[@]} -gt 0 ]; then touch "$state/mail"; else rm -f "$state/mail"; fi
   if [ -f "$log" ]; then wc -l <"$log" | tr -d ' ' >"$state/log.start"; else echo 0 >"$state/log.start"; fi
-  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
+  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} ${queue_env[@]+"${queue_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" AI_PROVIDER=fake PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
     ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
   if [ "$has_web" = 1 ]; then
     (cd "$root/web" && nohup npx vite preview --outDir dist-e2e --host 127.0.0.1 --port "$WEB_PORT" --strictPort \
