@@ -20,6 +20,9 @@ enum AuditAction: string
     case TaskCreated = 'task.created';
     case TaskUpdated = 'task.updated';
     case TaskDeleted = 'task.deleted';
+    case SummaryRequested = 'summary.requested';
+    case SummaryApproved = 'summary.approved';
+    case SummaryRejected = 'summary.rejected';
 
     public function label(): string
     {
@@ -36,6 +39,9 @@ enum AuditAction: string
             self::TaskCreated => 'Created a task',
             self::TaskUpdated => 'Edited a task',
             self::TaskDeleted => 'Deleted a task',
+            self::SummaryRequested => 'Requested a task summary',
+            self::SummaryApproved => 'Approved a task summary',
+            self::SummaryRejected => 'Rejected a task summary',
         };
     }
 
@@ -46,7 +52,8 @@ enum AuditAction: string
             self::MemberInvited, self::InvitationRevoked, self::MemberJoined,
             self::MemberRoleChanged, self::MemberRemoved => 'Members',
             self::RoleCreated, self::RoleUpdated, self::RoleDeleted => 'Roles',
-            self::TaskCreated, self::TaskUpdated, self::TaskDeleted => 'Tasks',
+            self::TaskCreated, self::TaskUpdated, self::TaskDeleted,
+            self::SummaryRequested, self::SummaryApproved, self::SummaryRejected => 'Tasks',
         };
     }
 }

@@ -75,8 +75,19 @@ A rebuild of `../saas-starter` (Laravel + Nuxt) with a React frontend, made to l
 - The page (`/audit-log`) loads with `useInfiniteQuery` and the API's cursor pages ("Load more"); filters live in the URL. A nav entry can name a `permission` (`AppSidebar`) to show only to roles with it.
 - Pest: `auditEntries($org, AuditAction::...)`. `jsonb` reorders object keys, so compare `changes` and `metadata` with `toEqual`, not `toBe`.
 
+## AI layer (plan 10)
+- All AI calls happen in Laravel; provider keys never reach `web/` (nothing AI-related in `VITE_*`).
+- Code against `App\Ai\Contracts\AiClient`. Provider and model come from `config/ai.php` and `.env` (`AI_PROVIDER`: `anthropic` over Laravel's HTTP client, or `fake`). The container wraps the provider in `RecordingAiClient`, so every call, failed ones too, lands in `ai_usage` (organization, user, feature, model, tokens, cost from `config('ai.pricing')`).
+- Prompts are classes in `app/Ai/Prompts` (`TaskSummaryPrompt`), never inline strings. Wrap user content in tags, escape `<`/`>`, and say in the system prompt that tagged content is data, not instructions (prompt injection). Only the one record's own fields go in, never another organization's data.
+- Ask for structured JSON (`schema`) and validate it with the prompt's `rules()` before saving. AI output is saved as a draft someone approves (and may edit); it never changes the record or triggers anything on its own.
+- Slow AI work is a queued job extending `App\Jobs\OrganizationJob` (stores the organization id at dispatch; `SetCurrentOrganization` runs it inside `CurrentOrganization::run()`; `inOrganization()` for `failed()`), with `RateLimited('ai')`. Jobs retry until `retryUntil()` (20 minutes, `maxExceptions` 3), not a try count, since rate-limited releases count as tries. Timeouts nest: HTTP 60s < job 75s < queue `retry_after` 90s. `AiUnavailable` (429, 5xx, timeouts) is retried; `AiRequestFailed` (4xx, refusal, `max_tokens`, invalid output) fails at once.
+- Rate limit AI per organization: `throttle:ai` on routes that start AI work (key `request:{org}`; jobs use `job:{org}`). Routes that start AI work are also `verified`; work started as a side effect (summaries on task create) checks the creator's verified email and its own key (`ai-auto:{org}`), skips quietly otherwise, and runs under `rescue()` so it never fails the action that triggered it. Requesting and reviewing follow who may edit the record (plan 11 adds `ai.use` and budgets).
+- Summaries (`TaskSummary`): `pending → draft → approved | rejected`, or `failed`. At most one pending and one approved per task (partial unique indexes). Requests and reviews lock the task row first. The job saves only if the row is still pending. `source_hash` gives the resource its `stale` flag; a pending one older than `STALE_AFTER_MINUTES` (30, above the job's retry window) is `stuck`, and asking again replaces it. Summaries point at their task through a composite key `(organization_id, task_id)`. `ai:summarize-tasks` backfills (audit `source: backfill`, no actor).
+- Web: `features/taskSummaries`. The card polls with `refetchInterval` while pending (3s), stops after 60s (`gaveUpOn`), and writes mutation answers into the cache with `setQueryData`. The summary's key lives under the task's detail key, and editing a task invalidates it.
+- Tests never call a real provider: `TestCase` binds `FakeAiClient` as `$this->ai` (`push()` a response, JSON or exception; `assertSent`, `assertNothingSent`) and calls `Http::preventStrayRequests()`. Provider tests use `Http::fake()`. e2e servers always run with `AI_PROVIDER=fake`. Pest: `createSummary($org, $task, TaskSummaryStatus::Draft)`; Vitest: `makeTaskSummary()`, `noSummary`.
+
 ## Later conventions
-saas-starter's CLAUDE.md has the sections for features not built here yet: AI layer (plans 10–13), billing (16), platform admin (17), automation. Each plan brings its section over, adapted, in the same commit as the feature. Until then, read it there before planning that feature.
+saas-starter's CLAUDE.md has the sections for features not built here yet: AI budgets, streaming and chat (plans 11–13), billing (16), platform admin (17), automation. Each plan brings its section over, adapted, in the same commit as the feature. Until then, read it there before planning that feature.
 
 ## Learning mode
 The point of this repo is to learn React.
@@ -89,7 +100,7 @@ The point of this repo is to learn React.
   - `/plan-task` (write a plan and stop for approval)
   - `/verify` (Pint, Pest, lint, typecheck, Vitest, build; skips a side that doesn't exist yet)
   - `/tenant-feature` (recipe for adding a tenant-owned feature, modeled on Tasks)
-  - `/e2e-smoke` (real servers on :8112/:5112: `vite preview` of a build in `web/dist-e2e`; `start --mail` sends emails to the log at once, `mail.sh` reads them and their links)
+  - `/e2e-smoke` (real servers on :8112/:5112: `vite preview` of a build in `web/dist-e2e`, API with `AI_PROVIDER=fake`; `start --mail` sends emails to the log at once and runs every job inline, `mail.sh` reads emails and their links)
   - `/ship-plan` (commit, push and mark the plan Done; only you can start it)
 - Subagents:
   - Read-only reviewers: `code-reviewer`, `security-auditor`, `tenant-isolation-reviewer`, `database-reviewer`, and `ui-reviewer` (browser; runs on Sonnet in quick mode, checking only the items listed, unless asked for a "full sweep").

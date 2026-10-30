@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Enums\TaskSummaryStatus;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToOrganization;
 use Database\Factories\TaskFactory;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -96,6 +99,34 @@ class Task extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * @return HasMany<TaskSummary, $this>
+     */
+    public function summaries(): HasMany
+    {
+        return $this->hasMany(TaskSummary::class);
+    }
+
+    /**
+     * The newest summary, whatever its status.
+     *
+     * @return HasOne<TaskSummary, $this>
+     */
+    public function latestSummary(): HasOne
+    {
+        return $this->hasOne(TaskSummary::class)->latestOfMany();
+    }
+
+    /**
+     * The task's summary as shown, until a newer one is approved (at most one, by index).
+     *
+     * @return HasOne<TaskSummary, $this>
+     */
+    public function approvedSummary(): HasOne
+    {
+        return $this->hasOne(TaskSummary::class)->where('status', TaskSummaryStatus::Approved);
     }
 
     /**

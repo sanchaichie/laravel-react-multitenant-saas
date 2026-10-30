@@ -2,14 +2,22 @@
 
 namespace App\Providers;
 
+use App\Ai\Clients\AnthropicClient;
+use App\Ai\Clients\FakeAiClient;
+use App\Ai\Clients\RecordingAiClient;
+use App\Ai\Contracts\AiClient;
+use App\Jobs\OrganizationJob;
 use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\ConfigurationUrlParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +28,30 @@ class AppServiceProvider extends ServiceProvider
     {
         // Scoped: fresh per request and per queued job.
         $this->app->scoped(CurrentOrganization::class);
+
+        // The provider from config/ai.php, wrapped so every call lands in ai_usage.
+        $this->app->bind(AiClient::class, fn (Application $app) => new RecordingAiClient(
+            $app->make('ai.provider'),
+            config('ai.model'),
+            config('ai.pricing'),
+        ));
+
+        $this->app->bind('ai.provider', fn (Application $app) => match (config('ai.provider')) {
+            'anthropic' => new AnthropicClient(
+                $app->make(HttpFactory::class),
+                config('ai.providers.anthropic'),
+                config('ai.model'),
+                config('ai.timeout'),
+                config('ai.max_tokens'),
+                config('ai.fallbacks'),
+                config('ai.fallback_models'),
+            ),
+            // Tests bind their own instance (TestCase) to push responses and inspect requests.
+            'fake' => $app->bound(FakeAiClient::class)
+                ? $app->make(FakeAiClient::class)
+                : new FakeAiClient(config('ai.model')),
+            default => throw new InvalidArgumentException('Unknown AI provider ['.config('ai.provider').'].'),
+        });
     }
 
     /**
@@ -72,6 +104,26 @@ class AppServiceProvider extends ServiceProvider
                 // Re-inviting sends the email again: not over and over to one address.
                 Limit::perHour(3)->by('invitations:to:'.$organizationId.'|'.mb_strtolower(trim((string) $request->input('email')))),
             ];
+        });
+
+        // AI per organization: requests from the app (throttle:ai) and the provider
+        // calls of AI jobs (RateLimited('ai')) are counted apart, so one click isn't
+        // counted twice. Automatic summaries have their own key (QueueTaskSummary).
+        RateLimiter::for('ai', function (object $subject) {
+            $limit = Limit::perMinute(config('ai.rate_limit_per_minute'));
+
+            if ($subject instanceof OrganizationJob) {
+                return $limit->by('job:'.$subject->organizationId);
+            }
+
+            // The throttle runs before the organization middleware: the organization is
+            // resolved from the user here. Without one, count per user (the 403 follows).
+            $organizationId = app(CurrentOrganization::class)->id();
+
+            return $limit->by($organizationId !== null ? "request:{$organizationId}" : 'request:user:'.$subject->user()?->id)
+                ->response(fn () => response()->json([
+                    'message' => 'Too many AI requests for this organization. Try again in a minute.',
+                ], 429));
         });
 
         // {{ }} in Markdown mail escapes HTML but not Markdown: without this, a name

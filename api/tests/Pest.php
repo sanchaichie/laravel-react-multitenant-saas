@@ -3,10 +3,13 @@
 use App\Enums\AuditAction;
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
+use App\Enums\TaskSummaryStatus;
 use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Role;
+use App\Models\Task;
+use App\Models\TaskSummary;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -139,4 +142,24 @@ function auditEntries(?Organization $organization = null, ?AuditAction $action =
         ->when($action, fn ($query) => $query->where('action', $action))
         ->orderBy('id')
         ->get();
+}
+
+/**
+ * A task summary written directly (no AI call), e.g. a draft to review.
+ *
+ * @param  array<string, mixed>  $attributes  any column
+ */
+function createSummary(Organization $organization, Task $task, TaskSummaryStatus $status, array $attributes = []): TaskSummary
+{
+    return inOrganization($organization, function () use ($task, $status, $attributes) {
+        $summary = (new TaskSummary)->forceFill(array_merge([
+            'task_id' => $task->id,
+            'status' => $status,
+            'summary' => $status === TaskSummaryStatus::Pending ? null : 'A summary.',
+            'key_points' => $status === TaskSummaryStatus::Pending ? null : ['A point'],
+        ], $attributes));
+        $summary->save();
+
+        return $summary;
+    });
 }

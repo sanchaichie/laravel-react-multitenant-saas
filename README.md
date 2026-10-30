@@ -9,7 +9,7 @@ A multi-organization SaaS starter with a Laravel API and a React app, being rebu
 - **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
 
 ## Status
-You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The Audit log page shows owners and admins who changed what (tasks, members, invitations, roles) with old → new values, filtered by action, person and dates. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
+You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The Audit log page shows owners and admins who changed what (tasks, members, invitations, roles) with old → new values, filtered by action, person and dates. Each task with a description gets an AI summary (once your email is verified) (Claude, queued in the background) with a few key points: it stays a draft until someone who can edit the task approves it, edits it first or rejects it, and it says when the task has changed since. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
 
 ## Requirements
 PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
@@ -40,6 +40,10 @@ Key settings in `api/.env`:
 | `FRONTEND_URL` | `http://localhost:5173` | The only origin CORS allows, and the base of email links |
 | `MAIL_MAILER` | `log` | Locally, emails are written to `storage/logs/laravel.log` |
 | `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries; `0` keeps them forever |
+| `AI_PROVIDER` | `anthropic` | `fake` for canned AI answers with no key and no cost (local work, e2e); `anthropic` calls Claude |
+| `ANTHROPIC_API_KEY` | empty | Needed with `AI_PROVIDER=anthropic`; stays on the server |
+| `AI_MODEL` | `claude-haiku-5-5` | The model for AI summaries |
+| `AI_RATE_LIMIT_PER_MINUTE` | `5` | AI requests per organization per minute |
 
 The rest is explained by comments in `api/.env.example`.
 
@@ -56,7 +60,8 @@ In two terminals:
 cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --port=8100 --no-reload
 cd web && npm run dev
 ```
-Emails (verification links, invitations) are queued. To have them sent, also run a queue worker: `cd api && php artisan queue:work`. With `MAIL_MAILER=log` they're written to `api/storage/logs/laravel.log`, links included.
+Emails (verification links, invitations) and AI summaries are queued. To have them sent and generated, also run a queue worker: `cd api && php artisan queue:work`. With `MAIL_MAILER=log` they're written to `api/storage/logs/laravel.log`, links included.
+Every AI call is recorded in the `ai_usage` table (tokens and cost). To summarize tasks created before AI was set up: `php artisan ai:summarize-tasks` (`--organization=ID`, `--limit=50`, `--dry-run`); the worker then generates them.
 Daily cleanup (expired invitations, audit log entries past `AUDIT_RETENTION_DAYS`) runs from the Laravel scheduler: `cd api && php artisan schedule:work` locally, or a cron entry for `php artisan schedule:run` in production.
 Open http://localhost:5173 and create an account. Vite must stay on :5173, the only origin the API's CORS allows (`FRONTEND_URL`).
 
@@ -84,6 +89,9 @@ The API answers on `http://localhost:8100/api`:
 | `GET /api/tasks/{id}` | One task, with what you may do (`can`) and `is_overdue` |
 | `PATCH /api/tasks/{id}` | Change any of the fields above |
 | `DELETE /api/tasks/{id}` | Delete |
+| `GET /api/tasks/{id}/summary` | The task's AI summary: `data` (the latest, any status: `pending`, `draft`, `approved`, `rejected`, `failed`), `approved` (the one shown until a newer one is approved) and `can.regenerate` |
+| `POST /api/tasks/{id}/summary` | Ask for a new one (202, pending; or the one already pending). For whoever may edit the task, with a verified email; 5 a minute per organization |
+| `POST /api/tasks/{id}/summaries/{summaryId}/approve` | Approve a draft, optionally edited (`summary`, `key_points`); `.../reject` rejects it. 409 unless it's a draft |
 | `GET /api/roles` | The organization's roles (Owner first) with their permissions, member counts and what you may do (`can`) |
 | `POST /api/roles` | Create (`name`, `permissions`: a list from the catalogue); needs `roles.manage`, and only permissions you have |
 | `PATCH /api/roles/{id}` | Rename or change permissions (the whole list); only roles that can do strictly less than yours, never Owner |
@@ -121,7 +129,7 @@ GitHub Actions runs all of these on every push to `main` and every pull request 
 | **Tasks**: filter by status, priority, assignee and overdue, search and sort (all in the URL) | **A task**: change its status in place, edit or delete it per your permissions |
 | ![Roles](docs/screenshots/roles.png) | ![Edit a role](docs/screenshots/role-edit.png) |
 | **Roles**: what each role allows, and how many have it | **Edit a role**: permissions grouped by area |
-| ![Audit log](docs/screenshots/audit-log.png) | |
+| ![Audit log](docs/screenshots/audit-log.png) | ![An AI task summary to review](docs/screenshots/task-summary.png) |
 | **Audit log**: who changed what, with old → new values; filter by action, person and dates | |
 
 ## Working with Claude Code

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\TaskController;
+use App\Http\Controllers\Api\TaskSummaryController;
 use Illuminate\Support\Facades\Route;
 
 // Separate counters, so failed logins don't use up registrations. 'login' is per
@@ -66,6 +67,17 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/tasks', [TaskController::class, 'store']);
             Route::patch('/tasks/{task}', [TaskController::class, 'update'])->where('task', '[0-9]{1,18}');
             Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->where('task', '[0-9]{1,18}');
+        });
+
+        // AI summaries. {summary} must belong to {task} (scoped bindings); asking for a
+        // new one is an AI call: it costs money ('verified') and is limited per organization ('ai').
+        Route::scopeBindings()->where(['task' => '[0-9]{1,18}', 'summary' => '[0-9]{1,18}'])->group(function () {
+            Route::get('/tasks/{task}/summary', [TaskSummaryController::class, 'show']);
+            Route::post('/tasks/{task}/summary', [TaskSummaryController::class, 'store'])->middleware(['verified', 'throttle:ai']);
+            Route::middleware('throttle:120,1,task-summaries')->group(function () {
+                Route::post('/tasks/{task}/summaries/{summary}/approve', [TaskSummaryController::class, 'approve']);
+                Route::post('/tasks/{task}/summaries/{summary}/reject', [TaskSummaryController::class, 'reject']);
+            });
         });
 
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
