@@ -44,6 +44,7 @@ export const ada: User = {
   email: 'ada@example.com',
   email_verified: true,
   pending_email: null,
+  two_factor_enabled: false,
   current_organization: acme,
   created_at: '2026-10-01T12:00:00.000000Z',
 }

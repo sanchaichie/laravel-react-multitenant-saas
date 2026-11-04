@@ -62,6 +62,8 @@ export interface User {
   email_verified: boolean
   /** A requested email change, until the link sent to the new address is followed. */
   pending_email: string | null
+  /** Logging in asks for a code from an authenticator app. */
+  two_factor_enabled: boolean
   /** Kept on the server (switching changes it); null once removed from it. */
   current_organization: Organization | null
   created_at: string
@@ -70,6 +72,21 @@ export interface User {
 export interface AuthResponse {
   user: User
   token: string
+}
+
+/** Login or reset with two-factor on: no token yet, send the challenge back with a code. */
+export interface TwoFactorChallenge {
+  two_factor: true
+  challenge: string
+}
+
+/** What logging in (or a password reset) answers: tell them apart with `'challenge' in result`. */
+export type LoginResult = AuthResponse | TwoFactorChallenge
+
+/** A started setup: the key for the authenticator app, and the link its QR code holds. */
+export interface TwoFactorSetup {
+  secret: string
+  otpauth_uri: string
 }
 
 export interface LoginPayload {

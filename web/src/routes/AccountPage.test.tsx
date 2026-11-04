@@ -4,7 +4,7 @@ import { useAuth } from '@/stores/auth'
 import { acme, ada, beta, jsonResponse, logIn, mockApi, organizationList, renderApp, sentBody } from '@/test/utils'
 import type { Device } from '@/types/api'
 
-type Handler = (init: RequestInit, url: URL) => Response
+type Handler = (init: RequestInit, url: URL) => Response | Promise<Response>
 
 const thisDevice: Device = {
   id: 1,
@@ -177,5 +177,159 @@ describe('AccountPage', () => {
     fail = false
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('This device')).toBeInTheDocument()
+  })
+})
+
+describe('Two-factor card', () => {
+  const setup = { secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', otpauth_uri: 'otpauth://totp/React%20SaaS:ada%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP' }
+  const codes = ['aaaaa-11111', 'bbbbb-22222', 'ccccc-33333', 'ddddd-44444', 'eeeee-55555', 'fffff-66666', 'ggggg-77777', 'hhhhh-88888']
+  const on = { ...ada, two_factor_enabled: true }
+
+  it('turns it on: password, QR code and key, a code, then the recovery codes once', async () => {
+    logIn()
+    const fetchMock = api({
+      'POST /api/account/two-factor': () => jsonResponse({ data: setup }),
+      'POST /api/account/two-factor/confirm': (init) =>
+        (sentBody(init) as { code: string }).code === '123456'
+          ? jsonResponse({ data: { recovery_codes: codes, user: on } })
+          : jsonResponse({ message: "That code isn't right.", errors: { code: ["That code isn't right."] } }, 422),
+    })
+    const { user } = renderApp('/account')
+
+    const twoFactor = await card('Two-factor authentication')
+    await user.click(within(twoFactor).getByRole('button', { name: 'Turn on…' }))
+    const passwordDialog = await screen.findByRole('dialog', { name: 'Turn on two-factor authentication' })
+    await user.type(within(passwordDialog).getByLabelText('Password'), 'password')
+    await user.click(within(passwordDialog).getByRole('button', { name: 'Continue' }))
+
+    const setupDialog = await screen.findByRole('dialog', { name: 'Scan the QR code' })
+    expect(within(setupDialog).getByRole('img', { name: 'QR code for your authenticator app' })).toBeInTheDocument()
+    expect(within(setupDialog).getByText('JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP')).toBeInTheDocument()
+
+    // A wrong code: the error, and still off.
+    await user.type(within(setupDialog).getByLabelText('Code from the app'), '000000')
+    expect(await within(setupDialog).findByText("That code isn't right.")).toBeInTheDocument()
+    expect(useAuth.getState().user?.two_factor_enabled).toBe(false)
+
+    await user.type(within(setupDialog).getByLabelText('Code from the app'), '123456')
+    const codesDialog = await screen.findByRole('dialog', { name: 'Save your recovery codes' })
+    expect(within(within(codesDialog).getByRole('list', { name: 'Recovery codes' })).getAllByRole('listitem')).toHaveLength(8)
+    expect(useAuth.getState().user?.two_factor_enabled).toBe(true)
+    expect(sentBody(fetchMock.mock.calls.find(([url]) => String(url).endsWith('/api/account/two-factor'))?.[1] ?? {})).toEqual({
+      current_password: 'password',
+    })
+
+    // Shown only once: Escape doesn't close it, and there's no close button.
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'Save your recovery codes' })).toBeInTheDocument()
+    expect(within(codesDialog).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+
+    await user.click(within(codesDialog).getByRole('button', { name: "I've saved them" }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(within(twoFactor).getByText('On')).toBeInTheDocument()
+  })
+
+  it('shows a wrong password on the field', async () => {
+    logIn()
+    api({
+      'POST /api/account/two-factor': () =>
+        jsonResponse({ message: 'The password is incorrect.', errors: { current_password: ['The password is incorrect.'] } }, 422),
+    })
+    const { user } = renderApp('/account')
+
+    await user.click(within(await card('Two-factor authentication')).getByRole('button', { name: 'Turn on…' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Password'), 'wrong')
+    await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+
+    expect(await within(dialog).findByText('The password is incorrect.')).toBeInTheDocument()
+  })
+
+  it('turns it off with the password and a code', async () => {
+    logIn(on)
+    const fetchMock = api({ 'DELETE /api/account/two-factor': () => jsonResponse({ data: ada }) })
+    const { user } = renderApp('/account')
+
+    const twoFactor = await card('Two-factor authentication')
+    await user.click(within(twoFactor).getByRole('button', { name: 'Turn off…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Turn off two-factor authentication?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Turn off' }))
+    expect(await within(dialog).findByText('Enter your password.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Enter the 6 digits from the app.')).toBeInTheDocument()
+
+    await user.type(within(dialog).getByLabelText('Password'), 'password')
+    await user.type(within(dialog).getByLabelText('Code from your authenticator app'), '123456')
+    await user.click(within(dialog).getByRole('button', { name: 'Turn off' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(useAuth.getState().user?.two_factor_enabled).toBe(false)
+    expect(within(twoFactor).getByRole('button', { name: 'Turn on…' })).toBeInTheDocument()
+    expect(sentBody(fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE')?.[1] ?? {})).toEqual({
+      current_password: 'password',
+      code: '123456',
+    })
+  })
+
+  it('turns it off with a recovery code when the phone is gone', async () => {
+    logIn(on)
+    const fetchMock = api({ 'DELETE /api/account/two-factor': () => jsonResponse({ data: ada }) })
+    const { user } = renderApp('/account')
+
+    await user.click(within(await card('Two-factor authentication')).getByRole('button', { name: 'Turn off…' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Password'), 'password')
+    await user.click(within(dialog).getByRole('button', { name: 'Lost your phone? Use a recovery code' }))
+    await user.type(within(dialog).getByLabelText('Recovery code'), 'aaaaa-11111')
+    await user.click(within(dialog).getByRole('button', { name: 'Turn off' }))
+
+    await waitFor(() => expect(useAuth.getState().user?.two_factor_enabled).toBe(false))
+    expect(sentBody(fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE')?.[1] ?? {})).toEqual({
+      current_password: 'password',
+      recovery_code: 'aaaaa-11111',
+    })
+  })
+
+  it('makes new recovery codes with the password and a code, and shows them', async () => {
+    logIn(on)
+    api({ 'POST /api/account/two-factor/recovery-codes': () => jsonResponse({ data: { recovery_codes: codes } }) })
+    const { user } = renderApp('/account')
+
+    await user.click(within(await card('Two-factor authentication')).getByRole('button', { name: 'New recovery codes…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Make new recovery codes' })
+    // A new set needs the app itself.
+    expect(within(dialog).queryByRole('button', { name: /recovery code/ })).not.toBeInTheDocument()
+    await user.type(within(dialog).getByLabelText('Password'), 'password')
+    await user.type(within(dialog).getByLabelText('Code from your authenticator app'), '123456')
+    await user.click(within(dialog).getByRole('button', { name: 'Make new codes' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Save your recovery codes' })).toBeInTheDocument()
+    expect(screen.getByText('hhhhh-88888')).toBeInTheDocument()
+  })
+})
+
+describe('Two-factor card, closed mid-request', () => {
+  it('still shows the new recovery codes when the dialog was closed while they were being made', async () => {
+    logIn({ ...ada, two_factor_enabled: true })
+    let answer: (response: Response) => void = () => {}
+    api({
+      'POST /api/account/two-factor/recovery-codes': () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve
+        }),
+    })
+    const { user } = renderApp('/account')
+
+    await user.click(within(await card('Two-factor authentication')).getByRole('button', { name: 'New recovery codes…' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Password'), 'password')
+    await user.type(within(dialog).getByLabelText('Code from your authenticator app'), '123456')
+    await user.click(within(dialog).getByRole('button', { name: 'Make new codes' }))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    answer(jsonResponse({ data: { recovery_codes: ['zzzzz-99999'] } }))
+
+    expect(await screen.findByRole('dialog', { name: 'Save your recovery codes' })).toBeInTheDocument()
+    expect(screen.getByText('zzzzz-99999')).toBeInTheDocument()
   })
 })

@@ -31,6 +31,8 @@ globalThis.ResizeObserver ??= ResizeObserverStub
 Element.prototype.hasPointerCapture ??= () => false
 Element.prototype.releasePointerCapture ??= () => {}
 Element.prototype.scrollIntoView ??= () => {}
+// input-otp (the 6-digit code boxes) looks for a password manager's badge over its input.
+document.elementFromPoint ??= () => null
 
 // Every test starts logged out, with an empty cache, the real fetch, the default
 // theme and an expanded sidebar.

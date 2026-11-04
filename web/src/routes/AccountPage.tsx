@@ -3,6 +3,7 @@ import { DevicesCard } from '@/features/account/DevicesCard'
 import { EmailCard } from '@/features/account/EmailCard'
 import { PasswordCard } from '@/features/account/PasswordCard'
 import { ProfileCard } from '@/features/account/ProfileCard'
+import { TwoFactorCard } from '@/features/account/TwoFactorCard'
 import { useAuth } from '@/stores/auth'
 
 /** Your own account, whatever organization is current (or none). */
@@ -22,6 +23,7 @@ export function AccountPage() {
       <ProfileCard key={user.name} user={user} />
       <EmailCard user={user} />
       <PasswordCard />
+      <TwoFactorCard user={user} />
       <DevicesCard />
       <DeleteAccountCard />
     </div>

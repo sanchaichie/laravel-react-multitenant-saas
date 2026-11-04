@@ -17,6 +17,7 @@ import { NotFoundPage } from '@/routes/NotFoundPage'
 import { RegisterPage } from '@/routes/RegisterPage'
 import { ResetPasswordPage } from '@/routes/ResetPasswordPage'
 import { RevertEmailPage } from '@/routes/RevertEmailPage'
+import { RevertTwoFactorPage } from '@/routes/RevertTwoFactorPage'
 import { RouteErrorPage } from '@/routes/RouteErrorPage'
 import { SelectOrganizationPage } from '@/routes/SelectOrganizationPage'
 import { TaskDetailPage } from '@/routes/TaskDetailPage'
@@ -29,8 +30,15 @@ export const routes: RouteObject[] = [
   {
     errorElement: <RouteErrorPage />,
     children: [
-      // Logged in or not: the undo link from the "email was changed" email.
-      { element: <AuthLayout />, children: [{ path: 'revert-email', element: <RevertEmailPage /> }] },
+      // Logged in or not: the undo links from the "email was changed" and
+      // "two-factor was turned on" emails.
+      {
+        element: <AuthLayout />,
+        children: [
+          { path: 'revert-email', element: <RevertEmailPage /> },
+          { path: 'revert-two-factor', element: <RevertTwoFactorPage /> },
+        ],
+      },
       {
         element: <RequireGuest />,
         children: [

@@ -17,10 +17,12 @@ interface ResetPasswordFormProps {
   /** From the emailed link (the page reads them from the URL). */
   token: string
   email: string
+  /** Two-factor is on: the password is changed, and the page asks for a code. */
+  onChallenge: (challenge: string) => void
 }
 
 /** A new password for the account in the link; on success the user is logged in. */
-export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
+export function ResetPasswordForm({ token, email, onChallenge }: ResetPasswordFormProps) {
   const reset = useResetPassword()
   const form = useForm<ResetPasswordValues>({
     resolver: zodResolver(resetPasswordSchema),
@@ -36,6 +38,11 @@ export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
     reset.mutate(
       { token, email, ...values },
       {
+        onSuccess: (result) => {
+          if ('challenge' in result) {
+            onChallenge(result.challenge)
+          }
+        },
         onError: (error) => {
           const handled = error instanceof ApiError && error.status === 422 && error.data?.errors?.email
           if (!handled && !applyFieldErrors(error, form.setError, ['password', 'password_confirmation'])) {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/stores/auth'
-import type { Device, User } from '@/types/api'
+import type { Device, TwoFactorSetup, User } from '@/types/api'
 
 // The user's own account: user-level keys (not ['org', ...]), untouched by switching.
 
@@ -85,6 +85,65 @@ export function useChangePassword() {
       apiFetch<void>('/api/account/password', { method: 'PUT', body }),
     // Other devices were signed out.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: devicesQuery.queryKey }),
+  })
+}
+
+/** Two-factor: a new secret for the app (two-factor stays off until a code confirms it). */
+export function useStartTwoFactor() {
+  return useMutation({
+    mutationFn: (current_password: string) =>
+      apiFetch<{ data: TwoFactorSetup }>('/api/account/two-factor', { method: 'POST', body: { current_password } }),
+  })
+}
+
+/**
+ * Where the recovery codes go. Passed to the hook, not to mutate(): they're shown only
+ * once, and TanStack Query skips mutate()'s callbacks if the form closed meanwhile.
+ */
+interface RecoveryCodesTarget {
+  onRecoveryCodes: (codes: string[]) => void
+}
+
+/** A code from the app turns it on: other devices are signed out, and the recovery codes come back once. */
+export function useConfirmTwoFactor({ onRecoveryCodes }: RecoveryCodesTarget) {
+  const setUser = useAuth((s) => s.setUser)
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) =>
+      apiFetch<{ data: { recovery_codes: string[]; user: User } }>('/api/account/two-factor/confirm', {
+        method: 'POST',
+        body: { code },
+      }),
+    onSuccess: ({ data }) => {
+      onRecoveryCodes(data.recovery_codes)
+      setUser(data.user)
+      toast.success('Two-factor authentication is on')
+      return queryClient.invalidateQueries({ queryKey: devicesQuery.queryKey })
+    },
+  })
+}
+
+/** The password plus a code from the app, or a recovery code (the phone is gone). */
+export type TwoFactorProof = { current_password: string } & ({ code: string } | { recovery_code: string })
+
+export function useDisableTwoFactor() {
+  const storeUser = useStoreUser()
+  return useMutation({
+    mutationFn: (body: TwoFactorProof) => apiFetch<{ data: User }>('/api/account/two-factor', { method: 'DELETE', body }),
+    // Here: the dialog that started it closes on success.
+    onSuccess: (data) => {
+      storeUser(data)
+      toast.success('Two-factor authentication is off')
+    },
+  })
+}
+
+/** A new set replaces the old one, which stops working. Needs a code from the app, not a recovery code. */
+export function useRegenerateRecoveryCodes({ onRecoveryCodes }: RecoveryCodesTarget) {
+  return useMutation({
+    mutationFn: (body: { current_password: string; code: string }) =>
+      apiFetch<{ data: { recovery_codes: string[] } }>('/api/account/two-factor/recovery-codes', { method: 'POST', body }),
+    onSuccess: ({ data }) => onRecoveryCodes(data.recovery_codes),
   })
 }
 

@@ -6,7 +6,15 @@ import { ApiError, apiFetch } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { useAuth } from '@/stores/auth'
 import { reloadUser } from './session'
-import type { AuthResponse, LoginPayload, OrganizationList, RegisterPayload, User } from '@/types/api'
+import type {
+  AuthResponse,
+  LoginPayload,
+  LoginResult,
+  OrganizationList,
+  RegisterPayload,
+  TwoFactorChallenge,
+  User,
+} from '@/types/api'
 
 // Mutations, not queries: these change the session rather than read data. On
 // success they store it, and RequireGuest (which reads the store) sends the user on.
@@ -23,12 +31,28 @@ async function withOrganizations(session: AuthResponse) {
   return { ...session, organizations }
 }
 
+type Session = Awaited<ReturnType<typeof withOrganizations>>
+
+/**
+ * A login or reset answer: with a token, load the organizations; with two-factor on,
+ * the challenge as it is, for the page to ask for a code.
+ */
+async function sessionOrChallenge(result: LoginResult): Promise<Session | TwoFactorChallenge> {
+  // `'challenge' in result` narrows the union: TypeScript knows which shape each branch has.
+  return 'challenge' in result ? result : withOrganizations(result)
+}
+
 /** Store a session from withOrganizations(); RequireGuest then sends the user on. */
 function useStartSession() {
   const setSession = useAuth((s) => s.setSession)
   const queryClient = useQueryClient()
 
-  return ({ token, user, organizations }: Awaited<ReturnType<typeof withOrganizations>>) => {
+  return (result: Session | TwoFactorChallenge) => {
+    // A challenge: nothing to store yet, the page shows the code step.
+    if ('challenge' in result) {
+      return
+    }
+    const { token, user, organizations } = result
     if (organizations) {
       queryClient.setQueryData(organizationsQuery.queryKey, organizations)
     }
@@ -41,7 +65,21 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (payload: LoginPayload) =>
-      withOrganizations(await apiFetch<AuthResponse>('/api/login', { method: 'POST', body: payload })),
+      sessionOrChallenge(await apiFetch<LoginResult>('/api/login', { method: 'POST', body: payload })),
+    onSuccess: startSession,
+  })
+}
+
+/** A code from the authenticator app, or a recovery code, for a login's challenge. */
+export type TwoFactorAnswer = { challenge: string } & ({ code: string } | { recovery_code: string })
+
+/** The second step of a login or reset with two-factor on; logs in like a login. */
+export function useCompleteTwoFactor() {
+  const startSession = useStartSession()
+
+  return useMutation({
+    mutationFn: async (body: TwoFactorAnswer) =>
+      withOrganizations(await apiFetch<AuthResponse>('/api/two-factor-challenge', { method: 'POST', body })),
     onSuccess: startSession,
   })
 }
@@ -54,13 +92,13 @@ export function useForgotPassword() {
   })
 }
 
-/** The link's token and email plus the new password; logs in like a login. */
+/** The link's token and email plus the new password; logs in like a login (a challenge with two-factor on). */
 export function useResetPassword() {
   const startSession = useStartSession()
 
   return useMutation({
     mutationFn: async (payload: { token: string; email: string; password: string; password_confirmation: string }) =>
-      withOrganizations(await apiFetch<AuthResponse>('/api/reset-password', { method: 'POST', body: payload })),
+      sessionOrChallenge(await apiFetch<LoginResult>('/api/reset-password', { method: 'POST', body: payload })),
     onSuccess: startSession,
   })
 }
