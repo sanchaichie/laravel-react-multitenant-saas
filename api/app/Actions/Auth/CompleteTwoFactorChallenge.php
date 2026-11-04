@@ -18,7 +18,9 @@ class CompleteTwoFactorChallenge
     /**
      * Swap a login challenge (IssueTwoFactorChallenge) and a code from the app, or a
      * recovery code, for a token. A challenge allows 5 tries and works once; it stops
-     * working when the password or the two-factor setup changes.
+     * working when the password or the two-factor setup changes. A code from the app
+     * marks the token as having passed one (admin routes); a recovery code doesn't,
+     * since new ones can be made with the password alone.
      *
      * @param  array{challenge: string, code?: string|null, recovery_code?: string|null}  $data
      * @return array{user: User, token: string}
@@ -62,6 +64,11 @@ class CompleteTwoFactorChallenge
                     $this->expire($challenge);
                 }
 
+                // Suspended after the password step.
+                if ($user->isSuspended()) {
+                    $this->expire($challenge, User::SUSPENDED_MESSAGE);
+                }
+
                 $remaining = $this->checkCode->useCode($user, $data['code'] ?? null, $recoveryCode);
 
                 // Used up while the row is still locked: a second request waits, then finds it gone.
@@ -92,7 +99,7 @@ class CompleteTwoFactorChallenge
             $user->notify(new RecoveryCodeUsed($remaining));
         }
 
-        return ['user' => $user, 'token' => $this->issueToken->handle($user, $pending['device_name'] ?? null)];
+        return ['user' => $user, 'token' => $this->issueToken->handle($user, $pending['device_name'] ?? null, twoFactor: $recoveryCode === null)];
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Account\ConfirmTwoFactor;
 use App\Actions\Account\DisableTwoFactor;
+use App\Actions\Account\ReconfirmTwoFactor;
 use App\Actions\Account\RegenerateRecoveryCodes;
 use App\Actions\Account\RevertTwoFactor;
 use App\Actions\Account\StartTwoFactorSetup;
@@ -11,10 +12,12 @@ use App\Http\Controllers\Api\Concerns\UsesCurrentToken;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Account\ConfirmTwoFactorRequest;
 use App\Http\Requests\Account\DisableTwoFactorRequest;
+use App\Http\Requests\Account\ReconfirmTwoFactorRequest;
 use App\Http\Requests\Account\RegenerateRecoveryCodesRequest;
 use App\Http\Requests\Account\StartTwoFactorRequest;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 
 /**
  * Two-factor authentication on the logged-in user's own account.
@@ -36,6 +39,20 @@ class TwoFactorController extends Controller
             'recovery_codes' => $codes,
             'user' => new UserResource($request->user()->refresh()),
         ]]);
+    }
+
+    /**
+     * A fresh code for this device (platform admin routes need a recent one). Only
+     * a saved API token can carry the mark.
+     */
+    public function reconfirm(ReconfirmTwoFactorRequest $request, ReconfirmTwoFactor $action): Response
+    {
+        $token = $this->currentToken($request);
+        abort_if($token === null, 403, 'Log in with a token to confirm a code.');
+
+        $action->handle($request->user(), $request->validated('code'), $token);
+
+        return response()->noContent();
     }
 
     public function recoveryCodes(RegenerateRecoveryCodesRequest $request, RegenerateRecoveryCodes $action): JsonResponse

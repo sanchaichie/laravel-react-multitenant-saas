@@ -12,12 +12,14 @@ use App\Models\AiUsage;
 use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\PlatformAuditLog;
 use App\Models\Role;
 use App\Models\Task;
 use App\Models\TaskChatMessage;
 use App\Models\TaskSummary;
 use App\Models\User;
 use App\Support\CurrentOrganization;
+use App\Support\Totp;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -380,4 +382,64 @@ function invoice(string $id, array $attributes = []): Invoice
         'hostedUrl' => 'https://invoice.stripe.com/i/acct_1/test_1',
         'pdfUrl' => 'https://pay.stripe.com/invoice/acct_1/test_1/pdf',
     ], $attributes));
+}
+
+/**
+ * The secret of User::factory()->withTwoFactor(), for admin tests' codes.
+ */
+const ADMIN_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+
+/**
+ * A platform admin (verified, two-factor on) and a real token for them. Admin
+ * routes read two_factor_at from the token, so Sanctum::actingAs (an unsaved token)
+ * won't do: send it with ->withToken(). $passedCode false: the token never passed one.
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array{0: User, 1: string}
+ */
+function platformAdmin(?DateTimeInterface $twoFactorAt = null, bool $passedCode = true, array $attributes = []): array
+{
+    $admin = User::factory()->platformAdmin()->withTwoFactor()->create($attributes);
+
+    return [$admin, adminToken($admin, $passedCode ? ($twoFactorAt ?? now()) : null)];
+}
+
+/**
+ * A real token for the user, that passed a two-factor code at $twoFactorAt (null: never).
+ */
+function adminToken(User $user, ?DateTimeInterface $twoFactorAt): string
+{
+    $token = $user->createToken('test');
+    $token->accessToken->forceFill(['two_factor_at' => $twoFactorAt])->save();
+
+    return $token->plainTextToken;
+}
+
+/**
+ * The current code for ADMIN_SECRET (freeze time first), and one that isn't right.
+ */
+function adminCode(int $offset = 0): string
+{
+    return Totp::codeAt(ADMIN_SECRET, Totp::step(now()->getTimestamp()) + $offset);
+}
+
+function wrongAdminCode(): string
+{
+    foreach (['000000', '111111', '222222'] as $code) {
+        if (Totp::verify(ADMIN_SECRET, $code) === null) {
+            return $code;
+        }
+    }
+
+    throw new RuntimeException('No wrong code found.');
+}
+
+/**
+ * Platform audit log entries, oldest first.
+ *
+ * @return EloquentCollection<int, PlatformAuditLog>
+ */
+function platformAuditLog(): EloquentCollection
+{
+    return PlatformAuditLog::query()->oldest('id')->get();
 }

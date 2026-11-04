@@ -16,7 +16,9 @@ class DeviceController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
+        // Not a platform admin's support session: it isn't one of their devices.
         $tokens = $request->user()->tokens()
+            ->whereNull('impersonator_id')
             ->orderByRaw('last_used_at desc nulls last')
             ->latest('id')
             ->limit(100)

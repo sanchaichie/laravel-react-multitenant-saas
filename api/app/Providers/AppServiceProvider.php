@@ -14,6 +14,8 @@ use App\Billing\StripeBillingGateway;
 use App\Enums\Permission;
 use App\Jobs\OrganizationJob;
 use App\Models\Organization;
+use App\Models\PersonalAccessToken;
+use App\Models\User;
 use App\Policies\BillingPolicy;
 use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -28,6 +30,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 use Laravel\Cashier\Cashier;
+use Laravel\Sanctum\Sanctum;
 use LogicException;
 
 class AppServiceProvider extends ServiceProvider
@@ -192,6 +195,40 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return $limits;
+        });
+
+        Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
+        // 401, like a revoked token: a suspended user's token (they're deleted on
+        // suspension; this also covers one issued in a race), and a "view as user"
+        // session whose admin could no longer start one (not an admin, two-factor off,
+        // suspended) or whose user became an admin. Sanctum checks expires_at itself.
+        Sanctum::authenticateAccessTokensUsing(function (PersonalAccessToken $token, bool $isValid): bool {
+            if (! $isValid || ! $token->tokenable instanceof User || $token->tokenable->isSuspended()) {
+                return false;
+            }
+
+            if (! $token->isImpersonation()) {
+                return true;
+            }
+
+            $admin = $token->impersonator;
+
+            return $admin !== null
+                && $admin->isPlatformAdmin()
+                && $admin->hasTwoFactorEnabled()
+                && ! $admin->isSuspended()
+                && ! $token->tokenable->isPlatformAdmin();
+        });
+
+        // Platform admin routes, per admin. The throttle runs before EnsurePlatformAdmin, so
+        // non-admins aren't counted: a 429 would tell them the area exists (they get 404).
+        RateLimiter::for('admin', function (Request $request) {
+            $user = $request->user();
+
+            return $user instanceof User && $user->isPlatformAdmin()
+                ? Limit::perMinute(60)->by('admin:'.$user->id)
+                : Limit::none();
         });
 
         // {{ }} in Markdown mail escapes HTML but not Markdown: without this, a name

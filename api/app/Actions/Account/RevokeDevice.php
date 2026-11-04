@@ -14,7 +14,8 @@ class RevokeDevice
      */
     public function handle(User $user, int $tokenId): void
     {
-        $deleted = $user->tokens()->whereKey($tokenId)->delete();
+        // A support session isn't one of their devices (hidden from the list too).
+        $deleted = $user->tokens()->whereNull('impersonator_id')->whereKey($tokenId)->delete();
 
         if ($deleted === 0) {
             throw new NotFoundHttpException;

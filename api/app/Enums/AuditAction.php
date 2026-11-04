@@ -26,6 +26,7 @@ enum AuditAction: string
     case AiBudgetUpdated = 'ai_budget.updated';
     case PlanChanged = 'billing.plan_changed';
     case AiCreditsPurchased = 'billing.credits_purchased';
+    case SupportViewedAs = 'support.viewed_as';
 
     public function label(): string
     {
@@ -48,6 +49,7 @@ enum AuditAction: string
             self::AiBudgetUpdated => 'Changed the AI budget',
             self::PlanChanged => 'Changed the plan',
             self::AiCreditsPurchased => 'Bought AI credits',
+            self::SupportViewedAs => 'Viewed the app as a member',
         };
     }
 
@@ -56,7 +58,7 @@ enum AuditAction: string
         return match ($this) {
             self::OrganizationCreated, self::AiBudgetUpdated => 'Organization',
             self::MemberInvited, self::InvitationRevoked, self::MemberJoined,
-            self::MemberRoleChanged, self::MemberRemoved => 'Members',
+            self::MemberRoleChanged, self::MemberRemoved, self::SupportViewedAs => 'Members',
             self::RoleCreated, self::RoleUpdated, self::RoleDeleted => 'Roles',
             self::TaskCreated, self::TaskUpdated, self::TaskDeleted,
             self::SummaryRequested, self::SummaryApproved, self::SummaryRejected => 'Tasks',

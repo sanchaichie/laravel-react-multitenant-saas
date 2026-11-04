@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Enums\TaskSummaryStatus;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToOrganization;
+use App\Support\Impersonation;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -182,13 +183,21 @@ class Task extends Model
 
     /**
      * Title or description contains $search, case-insensitive. % and _ are matched
-     * literally (escaped with \, Postgres' default LIKE escape).
+     * literally (escaped with \, Postgres' default LIKE escape). Only the title in a
+     * platform admin's "view as user" session: a search would otherwise tell what
+     * the hidden descriptions say.
      *
      * @param  Builder<self>  $query
      */
     public function scopeSearch(Builder $query, string $search): void
     {
         $pattern = '%'.addcslashes($search, '\\%_').'%';
+
+        if (app(Impersonation::class)->active()) {
+            $query->where('title', 'ilike', $pattern);
+
+            return;
+        }
 
         $query->where(fn (Builder $q) => $q->where('title', 'ilike', $pattern)->orWhere('description', 'ilike', $pattern));
     }

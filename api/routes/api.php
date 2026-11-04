@@ -1,6 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\ImpersonationController as AdminImpersonationController;
+use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationController;
+use App\Http\Controllers\Api\Admin\OrganizationOwnerController as AdminOrganizationOwnerController;
+use App\Http\Controllers\Api\Admin\UserActionController as AdminUserActionController;
+use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
@@ -21,7 +27,9 @@ use App\Http\Controllers\Api\TaskWritingHelpController;
 use App\Http\Controllers\Api\TwoFactorChallengeController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\VerifyStripeWebhook;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Separate counters, so failed logins don't use up registrations. 'login' is per
@@ -51,10 +59,17 @@ Route::post('/account/email/revert/{id}/{old}/{new}', [AccountController::class,
 // From Stripe, not the app: no user, authenticated by the payload's signature.
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->middleware(['throttle:120,1,stripe-webhook', VerifyStripeWebhook::class]);
 
+// A plain OPTIONS on an admin path would list its methods, showing which admin routes
+// exist: the same 404 as an unknown route. (A CORS preflight never gets here: HandleCors
+// answers it first, for every path, so the app on another origin still works.)
+Route::options('/admin/{path?}', fn (Request $request) => throw EnsurePlatformAdmin::notFound($request))->where('path', '.*');
+
 // Ids up to 18 digits: always fit bigint and the int parameter (longer is a 404, not a 500).
 // Throttle prefixes give each group its own per-user counter.
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
+// 'impersonation': a platform admin's "view as user" session can only read (every route
+// here, by default). Named routes are its exceptions (ReadOnlyImpersonation::ALLOWED_ROUTES).
+Route::middleware(['auth:sanctum', 'impersonation'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/me', [AuthController::class, 'me']);
 
     // The link from the verification email (the app posts it here), and a new one.
@@ -74,20 +89,45 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:current-password');
     Route::post('/account/two-factor', [TwoFactorController::class, 'store'])->middleware('throttle:current-password');
     Route::post('/account/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:6,1,two-factor-setup');
+    // A fresh code on this device's token: platform admin routes need a recent one.
+    Route::post('/account/two-factor/reconfirm', [TwoFactorController::class, 'reconfirm'])->middleware('throttle:6,1,two-factor-reconfirm');
     Route::post('/account/two-factor/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])->middleware('throttle:current-password');
     Route::delete('/account/two-factor', [TwoFactorController::class, 'destroy'])->middleware('throttle:current-password');
-    Route::get('/account/devices', [DeviceController::class, 'index']);
+    // The user's own devices and their IP addresses: not in a support view.
+    Route::get('/account/devices', [DeviceController::class, 'index'])->middleware('not-impersonating');
     Route::delete('/account/devices/{device}', [DeviceController::class, 'destroy'])->where('device', '[0-9]{1,18}')->middleware('throttle:60,1,devices');
 
     // The user's own organizations, whatever the current one.
     Route::get('/organizations', [OrganizationController::class, 'index']);
     Route::post('/organizations', [OrganizationController::class, 'store'])->middleware('throttle:20,1,organizations');
-    Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->where('organization', '[0-9]{1,18}');
+    Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->where('organization', '[0-9]{1,18}')->name('organizations.switch');
 
     // Accepting an invitation (token from the email link), from any current organization.
     // Not 'verified': accepting verifies the email (the link reached that inbox).
     Route::get('/join/{token}', [JoinController::class, 'show'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1,join');
     Route::post('/join/{token}', [JoinController::class, 'store'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1,join');
+
+    // Platform admins (not an organization role): lookups across organizations, and actions. Outside
+    // the organization group: they never act in a current organization. Non-admins get
+    // the unknown-route 404 (the 'admin' limiter doesn't count them, 'verified' runs
+    // after), so nothing tells them the area exists; admins need two-factor and a recent code.
+    Route::prefix('admin')->middleware(['throttle:admin', 'platform-admin', 'verified'])->group(function () {
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{user}', [AdminUserController::class, 'show'])->where('user', '[0-9]{1,18}');
+        Route::get('/organizations', [AdminOrganizationController::class, 'index']);
+        Route::get('/organizations/{organization}', [AdminOrganizationController::class, 'show'])->where('organization', '[0-9]{1,18}');
+        Route::get('/audit-log', [AdminAuditLogController::class, 'index']);
+
+        // Actions take a reason (for the platform log) and need a fresher code than lookups.
+        Route::middleware('platform-admin:action')->where(['user' => '[0-9]{1,18}', 'organization' => '[0-9]{1,18}'])->group(function () {
+            Route::post('/users/{user}/two-factor/reset', [AdminUserActionController::class, 'resetTwoFactor']);
+            Route::post('/users/{user}/sign-out', [AdminUserActionController::class, 'signOut']);
+            Route::post('/users/{user}/suspend', [AdminUserActionController::class, 'suspend']);
+            Route::post('/users/{user}/unsuspend', [AdminUserActionController::class, 'unsuspend']);
+            Route::post('/organizations/{organization}/owners', [AdminOrganizationOwnerController::class, 'store']);
+            Route::post('/users/{user}/impersonate', [AdminImpersonationController::class, 'store']);
+        });
+    });
 
     // Everything in here acts on the current organization. Features that reach other
     // people or cost money also need a verified email ('verified').
@@ -128,7 +168,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Your own private AI chat about a task: sending streams (server-sent events), costs
         // money ('verified') and is limited per organization ('ai').
         Route::where(['task' => '[0-9]{1,18}'])->group(function () {
-            Route::get('/tasks/{task}/chat', [TaskChatController::class, 'index'])->middleware('throttle:120,1,task-chat-read');
+            // Task content: not in a support view.
+            Route::get('/tasks/{task}/chat', [TaskChatController::class, 'index'])->middleware(['not-impersonating', 'throttle:120,1,task-chat-read']);
             Route::post('/tasks/{task}/chat', [TaskChatController::class, 'store'])->middleware(['verified', 'throttle:ai']);
             Route::delete('/tasks/{task}/chat', [TaskChatController::class, 'destroy'])->middleware('throttle:60,1,task-chat');
         });
@@ -136,7 +177,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // AI summaries. {summary} must belong to {task} (scoped bindings); asking for a
         // new one is an AI call: it costs money ('verified') and is limited per organization ('ai').
         Route::scopeBindings()->where(['task' => '[0-9]{1,18}', 'summary' => '[0-9]{1,18}'])->group(function () {
-            Route::get('/tasks/{task}/summary', [TaskSummaryController::class, 'show']);
+            Route::get('/tasks/{task}/summary', [TaskSummaryController::class, 'show'])->middleware('not-impersonating');
             Route::post('/tasks/{task}/summary', [TaskSummaryController::class, 'store'])->middleware(['verified', 'throttle:ai']);
             Route::middleware('throttle:120,1,task-summaries')->group(function () {
                 Route::post('/tasks/{task}/summaries/{summary}/approve', [TaskSummaryController::class, 'approve']);
@@ -158,7 +199,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('verified');
             Route::post('/billing/credits/checkout', [BillingController::class, 'creditsCheckout'])->middleware('verified');
             Route::post('/billing/portal', [BillingController::class, 'portal'])->middleware('verified');
-            Route::get('/billing/invoices', [BillingController::class, 'invoices']);
+            // Live from Stripe, with billing details: not in a support view.
+            Route::get('/billing/invoices', [BillingController::class, 'invoices'])->middleware('not-impersonating');
         });
     });
 });

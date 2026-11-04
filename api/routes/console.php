@@ -2,6 +2,7 @@
 
 use App\Models\AuditLog;
 use App\Models\OrganizationInvitation;
+use App\Models\PlatformAuditLog;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -13,5 +14,9 @@ Artisan::command('inspire', function () {
 // Daily: delete invitations accepted or expired more than 30 days ago (OrganizationInvitation::prunable).
 Schedule::command('model:prune', ['--model' => [OrganizationInvitation::class]])->daily();
 
-// Daily: delete audit log entries older than config('audit.retention_days') (AuditLog::prunable).
-Schedule::command('model:prune', ['--model' => [AuditLog::class]])->daily();
+// Daily: delete audit log entries (organization and platform) older than
+// config('audit.retention_days') (AuditLog::prunable, PlatformAuditLog::prunable).
+Schedule::command('model:prune', ['--model' => [AuditLog::class, PlatformAuditLog::class]])->daily();
+
+// Daily: delete tokens that expired more than a day ago ("view as user" sessions; other tokens don't expire).
+Schedule::command('sanctum:prune-expired', ['--hours' => 24])->daily();

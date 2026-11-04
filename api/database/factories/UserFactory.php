@@ -57,4 +57,15 @@ class UserFactory extends Factory
             'two_factor_confirmed_at' => now(),
         ]);
     }
+
+    /**
+     * A platform admin (in the app, only `admin:grant` sets it). Admin routes also
+     * need two-factor: combine with withTwoFactor(), or use platformAdmin() in tests.
+     */
+    public function platformAdmin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_platform_admin' => true,
+        ]);
+    }
 }

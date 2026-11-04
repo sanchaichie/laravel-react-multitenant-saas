@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Task;
+use App\Support\Impersonation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
@@ -21,11 +22,14 @@ class TaskResource extends JsonResource
     public function toArray(Request $request): array
     {
         $gate = Gate::forUser($request->user());
+        // A platform admin viewing as the user sees titles (what the list shows), not content.
+        $hidden = app(Impersonation::class)->active();
 
         return [
             'id' => $this->id,
             'title' => $this->title,
-            'description' => $this->description,
+            'description' => $hidden ? null : $this->description,
+            'content_hidden' => $hidden,
             'status' => $this->status->value,
             'priority' => $this->priority->value,
             'due_date' => $this->due_date?->toDateString(),

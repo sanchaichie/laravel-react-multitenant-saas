@@ -28,6 +28,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property list<string>|null $two_factor_recovery_codes sha256 hashes of the unused recovery codes.
  * @property Carbon|null $two_factor_confirmed_at
  * @property int|null $two_factor_last_used_step The time step of the last code accepted, so no code works twice.
+ * @property bool $is_platform_admin Someone who runs the app. Never fillable: only `admin:grant` / `admin:revoke`
+ *                                   change it (and turning two-factor off clears it, DisableTwoFactor::clear).
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at', 'two_factor_last_used_step'])]
@@ -35,6 +37,9 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
+
+    /** What login, the two-factor challenge and password reset say to a suspended user. */
+    public const SUSPENDED_MESSAGE = 'This account is suspended. Contact support.';
 
     /**
      * Stored in lowercase whatever the write path, so login (which lowercases) finds it
@@ -62,6 +67,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_recovery_codes' => 'array',
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_last_used_step' => 'integer',
+            'is_platform_admin' => 'boolean',
+            'suspended_at' => 'datetime',
         ];
     }
 
@@ -79,20 +86,45 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * The current organization, but only while the user is still a member of it,
-     * with the membership (role) loaded.
+     * with the membership (role) loaded. In a platform admin's "view as user"
+     * session it's the session's organization (on the token): switching there never
+     * moves the user's own.
      */
     public function activeOrganization(): ?Organization
     {
-        if ($this->current_organization_id === null) {
+        $token = $this->currentAccessToken();
+        $organizationId = $token instanceof PersonalAccessToken && $token->isImpersonation()
+            ? $token->organization_id
+            : $this->current_organization_id;
+
+        if ($organizationId === null) {
             return null;
         }
 
-        return $this->organizations()->whereKey($this->current_organization_id)->first();
+        return $this->organizations()->whereKey($organizationId)->first();
     }
 
     public function hasTwoFactorEnabled(): bool
     {
         return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
+    }
+
+    /**
+     * Someone who runs the app. Admin routes also need two-factor and a recent code
+     * on the token (EnsurePlatformAdmin).
+     */
+    public function isPlatformAdmin(): bool
+    {
+        return $this->is_platform_admin === true;
+    }
+
+    /**
+     * Suspended by a platform admin: can't log in, finish a challenge, reset the
+     * password or use a token (IssueToken, AppServiceProvider) until unsuspended.
+     */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
     }
 
     public function isMemberOf(Organization|int $organization): bool

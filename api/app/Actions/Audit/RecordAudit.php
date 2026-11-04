@@ -32,6 +32,9 @@ class RecordAudit
      *                            the user isn't logged in yet (registering)
      * @param  bool  $withoutActor  nobody did it, even if someone is logged in (Stripe did:
      *                              webhooks, and the fake billing provider's checkouts)
+     * @param  bool  $byPlatformAdmin  a platform admin did it: stored without the actor or IP,
+     *                                 so the organization sees that support did it but not who
+     *                                 (the platform log has that)
      */
     public function handle(
         AuditAction $action,
@@ -41,9 +44,13 @@ class RecordAudit
         ?Organization $organization = null,
         ?User $actor = null,
         bool $withoutActor = false,
+        bool $byPlatformAdmin = false,
     ): AuditLog {
         $user = $this->auth->guard()->user();
-        $actor ??= ! $withoutActor && $user instanceof User ? $user : null;
+        $actor ??= ! $withoutActor && ! $byPlatformAdmin && $user instanceof User ? $user : null;
+        if ($byPlatformAdmin) {
+            $actor = null;
+        }
 
         $entry = (new AuditLog)->forceFill([
             'actor_id' => $actor?->id,
@@ -55,6 +62,7 @@ class RecordAudit
             'metadata' => $metadata ?: null,
             // Only for something a logged-in user did in this request, not jobs or console.
             'ip_address' => $actor !== null ? $this->request->ip() : null,
+            'by_platform_admin' => $byPlatformAdmin,
         ]);
 
         // organization_id comes from the current organization (BelongsToOrganization).

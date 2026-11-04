@@ -33,6 +33,13 @@ class LoginUser
             ]);
         }
 
+        // After the password check: only someone with the right password learns it.
+        if ($user->isSuspended()) {
+            throw ValidationException::withMessages([
+                'email' => [User::SUSPENDED_MESSAGE],
+            ]);
+        }
+
         if ($user->hasTwoFactorEnabled()) {
             return ['two_factor' => true, 'challenge' => $this->issueChallenge->handle($user, $data['device_name'] ?? null)];
         }
