@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -21,9 +22,15 @@ use Laravel\Sanctum\HasApiTokens;
  *                                             or App\Support\CurrentOrganization, which check membership.
  * @property string|null $pending_email A requested email change, until the new address confirms it (never fillable).
  * @property string|null $previous_email The email before the last confirmed change, for its undo link (never fillable).
+ * @property Carbon|null $email_changed_at When that change was confirmed (never fillable).
+ * @property string|null $two_factor_secret The authenticator app's secret (encrypted). Two-factor is only on once
+ *                                          two_factor_confirmed_at is set; a secret alone is an unfinished setup.
+ * @property list<string>|null $two_factor_recovery_codes sha256 hashes of the unused recovery codes.
+ * @property Carbon|null $two_factor_confirmed_at
+ * @property int|null $two_factor_last_used_step The time step of the last code accepted, so no code works twice.
  */
 #[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at', 'two_factor_last_used_step'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
@@ -49,7 +56,12 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_changed_at' => 'datetime',
             'password' => 'hashed',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'array',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_last_used_step' => 'integer',
         ];
     }
 
@@ -76,6 +88,11 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return $this->organizations()->whereKey($this->current_organization_id)->first();
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
     }
 
     public function isMemberOf(Organization|int $organization): bool

@@ -4,6 +4,7 @@ namespace App\Actions\Account;
 
 use App\Models\User;
 use App\Notifications\ConfirmEmailChange;
+use App\Notifications\EmailChanged;
 use App\Notifications\EmailChangeRequested;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Notification;
@@ -26,6 +27,15 @@ class ChangeEmail
     {
         if ($email === $user->email) {
             throw ValidationException::withMessages(['email' => ["That's already your email."]]);
+        }
+
+        // While the last change can still be undone: a second change would point that
+        // undo link (bound to the change) nowhere, and the old address would be gone.
+        $undoUntil = $user->email_changed_at?->copy()->addDays(EmailChanged::UNDO_DAYS);
+        if ($undoUntil !== null && $undoUntil->isFuture()) {
+            throw ValidationException::withMessages(['email' => [
+                'You changed your email recently. You can change it again from '.$undoUntil->format('M j, Y').'.',
+            ]]);
         }
 
         // 10 requests a day, counting only ones that send mail (typos and wrong

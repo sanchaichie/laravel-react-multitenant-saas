@@ -72,6 +72,9 @@ class DeleteAccount
                 throw ValidationException::withMessages(['account' => 'Your organizations changed while deleting. Try again.']);
             }
 
+            // The user row before its tokens, the order every other account action
+            // locks them in (ConfirmTwoFactor, RevertEmailChange): no deadlock between two tabs.
+            User::query()->whereKey($user->id)->lockForUpdate()->first();
             $user->tokens()->delete();
             Password::broker()->deleteToken($user);
             $user->delete();

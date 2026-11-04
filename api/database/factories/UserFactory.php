@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\Support\RecoveryCodes;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -40,6 +41,20 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Two-factor on, with a known secret and two recovery codes.
+     *
+     * @param  list<string>  $recoveryCodes
+     */
+    public function withTwoFactor(string $secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', array $recoveryCodes = ['aaaaa-bbbbb', 'ccccc-ddddd']): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'two_factor_secret' => $secret,
+            'two_factor_recovery_codes' => RecoveryCodes::hashAll($recoveryCodes),
+            'two_factor_confirmed_at' => now(),
         ]);
     }
 }

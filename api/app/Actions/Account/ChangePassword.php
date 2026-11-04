@@ -18,6 +18,8 @@ class ChangePassword
         DB::transaction(function () use ($user, $password, $currentToken) {
             // A pending email change goes too: changing the password is how you'd stop
             // someone who had the old one.
+            // Locked, like a reset: a two-factor challenge or email change waits for it.
+            $user = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $user->forceFill(['password' => $password, 'remember_token' => null, 'pending_email' => null])->save();
 
             $user->tokens()

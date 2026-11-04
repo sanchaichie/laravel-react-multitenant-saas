@@ -8,13 +8,17 @@ use Illuminate\Validation\ValidationException;
 
 class LoginUser
 {
-    public function __construct(private readonly IssueToken $issueToken) {}
+    public function __construct(
+        private readonly IssueToken $issueToken,
+        private readonly IssueTwoFactorChallenge $issueChallenge,
+    ) {}
 
     /**
-     * Verify credentials and issue a new API token.
+     * Verify credentials and issue a new API token, or, when two-factor is on, a
+     * challenge to swap for one with a code (CompleteTwoFactorChallenge).
      *
      * @param  array{email: string, password: string, device_name?: string|null}  $data
-     * @return array{user: User, token: string}
+     * @return array{user: User, token: string}|array{two_factor: true, challenge: string}
      *
      * @throws ValidationException
      */
@@ -27,6 +31,10 @@ class LoginUser
             throw ValidationException::withMessages([
                 'email' => [__('auth.failed')],
             ]);
+        }
+
+        if ($user->hasTwoFactorEnabled()) {
+            return ['two_factor' => true, 'challenge' => $this->issueChallenge->handle($user, $data['device_name'] ?? null)];
         }
 
         return ['user' => $user, 'token' => $this->issueToken->handle($user, $data['device_name'] ?? null)];

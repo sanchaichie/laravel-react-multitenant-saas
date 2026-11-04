@@ -26,6 +26,7 @@ class UserResource extends JsonResource
             'email_verified' => $this->hasVerifiedEmail(),
             // A requested change, until the new address confirms it.
             'pending_email' => $this->pending_email,
+            'two_factor_enabled' => $this->hasTwoFactorEnabled(),
             'current_organization' => $currentOrganization ? new OrganizationResource($currentOrganization) : null,
             'created_at' => $this->created_at,
         ];

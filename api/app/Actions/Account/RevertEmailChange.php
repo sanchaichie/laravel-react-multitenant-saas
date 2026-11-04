@@ -16,13 +16,18 @@ class RevertEmailChange
      * expiry; this checks it's for this exact change. The old address comes back
      * (verified: the link reached it), every device is signed out, and a password
      * reset link goes to it, since whoever changed the email had the password.
+     * Two-factor set up since the change is turned off too: whoever had the account
+     * may have set it up with their own phone, which would keep the owner out even
+     * after the reset. One set up before the change stays.
+     *
+     * @return bool whether two-factor was turned off
      *
      * @throws AuthorizationException a link for another change, or one already used
      * @throws ValidationException the old address is now another account's
      */
-    public function handle(int $id, string $oldHash, string $newHash): void
+    public function handle(int $id, string $oldHash, string $newHash): bool
     {
-        $user = DB::transaction(function () use ($id, $oldHash, $newHash) {
+        [$user, $hadTwoFactor] = DB::transaction(function () use ($id, $oldHash, $newHash) {
             $user = User::query()->whereKey($id)->lockForUpdate()->first();
 
             if ($user === null || $user->previous_email === null
@@ -43,10 +48,24 @@ class RevertEmailChange
             ])->save();
             $user->tokens()->delete();
 
-            return $user;
+            // Only a setup from after the change: one the owner made before it stays,
+            // so the old inbox alone still can't log in without their phone.
+            // Without email_changed_at (a change from before it existed), keep it: the
+            // owner's two-factor is worth more than undoing someone else's.
+            $setUpSince = $user->two_factor_secret !== null && ($user->two_factor_confirmed_at === null
+                || ($user->email_changed_at !== null && $user->two_factor_confirmed_at->gte($user->email_changed_at)));
+            $hadTwoFactor = $setUpSince && $user->hasTwoFactorEnabled();
+            if ($setUpSince) {
+                DisableTwoFactor::clear($user);
+            }
+            $user->forceFill(['email_changed_at' => null])->save();
+
+            return [$user, $hadTwoFactor];
         });
 
         // After the commit, to the address that's the account's again.
         Password::broker()->sendResetLink(['email' => $user->email]);
+
+        return $hadTwoFactor;
     }
 }

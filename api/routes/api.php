@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\TaskChatController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TaskSummaryController;
 use App\Http\Controllers\Api\TaskWritingHelpController;
+use App\Http\Controllers\Api\TwoFactorChallengeController;
+use App\Http\Controllers\Api\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
 // Separate counters, so failed logins don't use up registrations. 'login' is per
@@ -28,6 +30,15 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 // broker also allows one link per address a minute.
 Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:6,1,password-reset');
 Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1,password-reset');
+
+// The second step of a login or a reset when two-factor is on (the challenge they
+// answered). Its own per-IP counter; CheckTwoFactorCode also limits each account.
+Route::post('/two-factor-challenge', [TwoFactorChallengeController::class, 'store'])->middleware('throttle:6,1,two-factor');
+
+// The "this wasn't me" link from the "two-factor was turned on" email: no login.
+Route::post('/account/two-factor/revert/{id}/{at}', [TwoFactorController::class, 'revert'])
+    ->where(['id' => '[0-9]{1,18}', 'at' => '[0-9]{1,12}'])
+    ->middleware(['signed:relative', 'throttle:6,1,two-factor-revert'])->name('account.two-factor.revert');
 
 // The undo link from the "email was changed" notice: no login, the owner may be locked out.
 Route::post('/account/email/revert/{id}/{old}/{new}', [AccountController::class, 'revertEmail'])
@@ -55,6 +66,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/account/email/pending', [AccountController::class, 'cancelEmailChange'])->middleware('throttle:20,1,account');
     Route::put('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:current-password');
     Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:current-password');
+    Route::post('/account/two-factor', [TwoFactorController::class, 'store'])->middleware('throttle:current-password');
+    Route::post('/account/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:6,1,two-factor-setup');
+    Route::post('/account/two-factor/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])->middleware('throttle:current-password');
+    Route::delete('/account/two-factor', [TwoFactorController::class, 'destroy'])->middleware('throttle:current-password');
     Route::get('/account/devices', [DeviceController::class, 'index']);
     Route::delete('/account/devices/{device}', [DeviceController::class, 'destroy'])->where('device', '[0-9]{1,18}')->middleware('throttle:60,1,devices');
 

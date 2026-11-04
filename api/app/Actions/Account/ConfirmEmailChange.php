@@ -49,6 +49,7 @@ class ConfirmEmailChange
                     'email_verified_at' => now(),
                     'pending_email' => null,
                     'previous_email' => $oldEmail,
+                    'email_changed_at' => now(),
                 ])->save();
 
                 $locked->tokens()

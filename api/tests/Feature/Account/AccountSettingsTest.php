@@ -281,6 +281,61 @@ it('refuses an undo link that was tampered with or is for another change', funct
     expect($user->fresh()->email)->toBe('old@example.com');
 });
 
+it('turns two-factor off when undoing an email change if it was set up since: whoever changed it may have', function () {
+    $user = User::factory()->withTwoFactor()->create(['email' => 'attacker@example.com', 'previous_email' => 'old@example.com', 'email_changed_at' => now()->subHour()]);
+    $link = URL::temporarySignedRoute('account.email.revert', now()->addDay(), ['id' => $user->id, 'old' => sha1('old@example.com'), 'new' => sha1('attacker@example.com')], absolute: false);
+
+    $this->postJson($link)->assertOk()
+        ->assertJsonPath('message', fn (string $message) => str_contains($message, 'Two-factor authentication was turned off'));
+
+    expect($user->fresh())
+        ->email->toBe('old@example.com')
+        ->two_factor_secret->toBeNull()
+        ->two_factor_recovery_codes->toBeNull()
+        ->and($user->fresh()->hasTwoFactorEnabled())->toBeFalse();
+});
+
+it("keeps the owner's own two-factor, set up before the change, when undoing it", function () {
+    $user = User::factory()->withTwoFactor()->create([
+        'email' => 'new@example.com',
+        'previous_email' => 'old@example.com',
+        'two_factor_confirmed_at' => now()->subDays(30),
+        'email_changed_at' => now()->subHour(),
+    ]);
+    $link = URL::temporarySignedRoute('account.email.revert', now()->addDay(), ['id' => $user->id, 'old' => sha1('old@example.com'), 'new' => sha1('new@example.com')], absolute: false);
+
+    $this->postJson($link)->assertOk()
+        ->assertJsonPath('message', fn (string $message) => ! str_contains($message, 'Two-factor'));
+
+    // The old inbox gets a reset link, but logging in still needs the owner's phone.
+    expect($user->fresh())
+        ->email->toBe('old@example.com')
+        ->email_changed_at->toBeNull()
+        ->and($user->fresh()->hasTwoFactorEnabled())->toBeTrue();
+});
+
+it('refuses another email change while the last one can still be undone, so its undo link keeps working', function () {
+    $user = User::factory()->create(['email' => 'new@example.com', 'previous_email' => 'old@example.com', 'email_changed_at' => now()->subDays(6)]);
+    Sanctum::actingAs($user);
+
+    $this->putJson('/api/account/email', ['email' => 'other@example.com', 'current_password' => 'password'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['email' => 'You changed your email recently.']);
+    expect($user->fresh()->pending_email)->toBeNull();
+
+    $this->travel(1)->days();
+    $this->putJson('/api/account/email', ['email' => 'other@example.com', 'current_password' => 'password'])->assertOk();
+});
+
+it('records when an email change was confirmed', function () {
+    $user = User::factory()->create(['email' => 'old@example.com']);
+    $token = $user->createToken('laptop')->plainTextToken;
+    $this->withToken($token)->putJson('/api/account/email', ['email' => 'new@example.com', 'current_password' => 'password'])->assertOk();
+    $this->withToken($token)->postJson(emailChangeLink())->assertOk();
+
+    expect($user->fresh()->email_changed_at)->not->toBeNull();
+});
+
 it('sends at most 3 confirmation emails a day to one address, answering the same', function () {
     foreach (range(1, 4) as $i) {
         Sanctum::actingAs(User::factory()->create());

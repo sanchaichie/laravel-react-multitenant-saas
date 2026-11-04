@@ -4,14 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Auth\ResetUserPassword;
 use App\Actions\Auth\SendPasswordResetLink;
+use App\Http\Controllers\Api\Concerns\RespondsWithLogin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
-use App\Http\Resources\UserResource;
 use Illuminate\Http\JsonResponse;
 
 class PasswordResetController extends Controller
 {
+    use RespondsWithLogin;
+
     public function sendLink(ForgotPasswordRequest $request, SendPasswordResetLink $action): JsonResponse
     {
         $action->handle($request->validated('email'));
@@ -21,11 +23,9 @@ class PasswordResetController extends Controller
         ]);
     }
 
-    // Logs in, like AuthController::login.
+    // Logs in like AuthController::login, through a two-factor challenge when it's on.
     public function reset(ResetPasswordRequest $request, ResetUserPassword $action): JsonResponse
     {
-        $result = $action->handle($request->validated());
-
-        return response()->json(['user' => new UserResource($result['user']), 'token' => $result['token']]);
+        return $this->loginResponse($action->handle($request->validated()));
     }
 }

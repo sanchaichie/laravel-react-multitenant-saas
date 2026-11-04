@@ -8,6 +8,7 @@ use App\Actions\Account\ConfirmEmailChange;
 use App\Actions\Account\DeleteAccount;
 use App\Actions\Account\RevertEmailChange;
 use App\Actions\Account\UpdateProfile;
+use App\Http\Controllers\Api\Concerns\UsesCurrentToken;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Account\ChangeEmailRequest;
 use App\Http\Requests\Account\ChangePasswordRequest;
@@ -17,13 +18,14 @@ use App\Http\Resources\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * The logged-in user's own account. Not tied to an organization.
  */
 class AccountController extends Controller
 {
+    use UsesCurrentToken;
+
     public function update(UpdateProfileRequest $request, UpdateProfile $action): UserResource
     {
         return new UserResource($action->handle($request->user(), $request->validated()));
@@ -49,10 +51,11 @@ class AccountController extends Controller
      */
     public function revertEmail(string $id, string $old, string $new, RevertEmailChange $action): JsonResponse
     {
-        $action->handle((int) $id, $old, $new);
+        $hadTwoFactor = $action->handle((int) $id, $old, $new);
 
         return response()->json([
-            'message' => 'Your old email address is back, and every device was signed out. Check it for a link to set a new password.',
+            'message' => 'Your old email address is back, and every device was signed out. Check it for a link to set a new password.'
+                .($hadTwoFactor ? ' Two-factor authentication was turned off: turn it on again once you have logged in.' : ''),
         ]);
     }
 
@@ -75,13 +78,5 @@ class AccountController extends Controller
         $action->handle($request->user());
 
         return response()->noContent();
-    }
-
-    private function currentToken(Request $request): ?PersonalAccessToken
-    {
-        $token = $request->user()->currentAccessToken();
-
-        // A saved token only (Sanctum::actingAs in tests gives an unsaved stand-in).
-        return $token instanceof PersonalAccessToken && $token->exists ? $token : null;
     }
 }
