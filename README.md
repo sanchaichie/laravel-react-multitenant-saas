@@ -5,11 +5,11 @@
 A multi-organization SaaS starter with a Laravel API and a React app, being rebuilt from [saas-starter](../saas-starter) (Laravel + Nuxt) one feature at a time, as a way to learn React. Tasks take the place of Projects.
 
 ## Stack
-- **API (`api/`):** Laravel, PostgreSQL, Sanctum token auth, Pest
+- **API (`api/`):** Laravel, PostgreSQL, Sanctum token auth, Cashier (Stripe), Pest
 - **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
 
 ## Status
-You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The Audit log page shows owners and admins who changed what (tasks, members, invitations, roles) with old → new values, filtered by action, person and dates. Each task with a description gets an AI summary (once your email is verified) (Claude, queued in the background) with a few key points: it stays a draft until someone who can edit the task approves it, edits it first or rejects it, and it says when the task has changed since. Asking for summaries needs the "Ask for AI summaries" permission (Admin and Member have it). In the task form, "Improve with AI" rewrites the description (improve, expand or shorten) and streams the suggestion as it's written; you accept it into the field, try again or discard it. On a task, **Ask AI** opens a private chat about that task (only you see your conversation); answers stream in, and you can stop one or clear the conversation. Each organization has a monthly AI budget (a default the owner can raise, lower, or set to $0 to turn AI off); once it's spent, AI requests are refused until the next month. The AI usage page shows owners and admins one month of calls, tokens and cost by feature, person and day, with the budget. Forgot your password? A reset link by email logs you back in. Account settings (from your name in the sidebar) change your name, email and password, list your signed-in devices so you can sign any of them out, and delete your account. You can turn on two-factor authentication there: logging in (and logging in after a password reset) then also asks for a code from an authenticator app, with one-time recovery codes in case you lose your phone. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
+You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The Audit log page shows owners and admins who changed what (tasks, members, invitations, roles) with old → new values, filtered by action, person and dates. Each task with a description gets an AI summary (once your email is verified) (Claude, queued in the background) with a few key points: it stays a draft until someone who can edit the task approves it, edits it first or rejects it, and it says when the task has changed since. Asking for summaries needs the "Ask for AI summaries" permission (Admin and Member have it). In the task form, "Improve with AI" rewrites the description (improve, expand or shorten) and streams the suggestion as it's written; you accept it into the field, try again or discard it. On a task, **Ask AI** opens a private chat about that task (only you see your conversation); answers stream in, and you can stop one or clear the conversation. Each organization has a monthly AI budget set by its plan (the owner can lower it, or set it to $0 to turn AI off); once it's spent, AI requests are refused until the next month. On the Billing page, owners upgrade to **Pro** (a bigger AI budget) through Stripe Checkout, buy one-time AI credit packs that add to this month's budget, manage the card or cancel in Stripe's Customer Portal, and list the organization's invoices with links to Stripe's copies. The AI usage page shows owners and admins one month of calls, tokens and cost by feature, person and day, with the budget. Forgot your password? A reset link by email logs you back in. Account settings (from your name in the sidebar) change your name, email and password, list your signed-in devices so you can sign any of them out, and delete your account. You can turn on two-factor authentication there: logging in (and logging in after a password reset) then also asks for a code from an authenticator app, with one-time recovery codes in case you lose your phone. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
 
 ## Requirements
 PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
@@ -47,9 +47,24 @@ Key settings in `api/.env`:
 | `AI_STREAM_TIMEOUT` | `120` | Seconds a streamed AI answer (writing help) may take |
 | `AI_MAX_CONCURRENT_STREAMS` | `3` | Streamed AI answers running at once on the server; keep it below the PHP workers (4) |
 | `AI_FAKE_STREAM_DELAY_MS` | `0` | With `AI_PROVIDER=fake`, milliseconds between streamed words (e2e runs use 60) |
-| `AI_MONTHLY_BUDGET_USD` | `5` | Each organization's monthly AI budget in USD, unless it set its own; `0` turns AI off |
+| `AI_MONTHLY_BUDGET_USD` | `5` | The Free plan's monthly AI budget in USD per organization (owners can set a lower one); `0` turns AI off |
+| `BILLING_PROVIDER` | `stripe` | `fake` for no Stripe calls (e2e; only with `APP_ENV=local` or `testing`) |
+| `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | empty | Stripe API keys and the webhook's signing secret (without it every webhook is refused) |
+| `STRIPE_PRICE_PRO`, `STRIPE_PRICE_CREDITS_10` | empty | Stripe price ids of the Pro plan (recurring) and the $10 AI credit pack (one-time); without one, it can't be bought |
+| `BILLING_PRO_AI_BUDGET_USD` | `50` | Pro's monthly AI budget in USD |
 
 The rest is explained by comments in `api/.env.example`.
+
+#### Stripe (optional)
+Billing works without Stripe until someone pays: the Billing page shows the Free plan, and Upgrade says the plan isn't available yet. To try it for real in Stripe's test mode:
+1. In the Stripe dashboard (test mode), create a product "Pro" with a monthly price, and one "AI credits" with a one-time $10 price. Put their `price_...` ids in `STRIPE_PRICE_PRO` and `STRIPE_PRICE_CREDITS_10`, and the API keys in `STRIPE_KEY` / `STRIPE_SECRET`.
+2. Turn on the Customer Portal (Settings → Billing → Customer portal), with plan switching off.
+3. Forward webhooks with the Stripe CLI and put the secret it prints in `STRIPE_WEBHOOK_SECRET`:
+   ```bash
+   stripe listen --forward-to localhost:8100/api/stripe/webhook \
+     --events customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,customer.updated,customer.deleted,checkout.session.completed,checkout.session.async_payment_succeeded
+   ```
+4. Upgrade with the card `4242 4242 4242 4242` (any future date, any CVC). In production, add the same events to a webhook endpoint in the dashboard, and set "If all retries for a payment fail" to cancel the subscription.
 
 ### 3. Web
 ```bash
@@ -84,7 +99,7 @@ The API answers on `http://localhost:8100/api`:
 | `POST /api/account/email/revert/{id}/{old}/{new}` | The undo link from the "email was changed" notice (7 days, no login): the old address comes back, every device is signed out, two-factor set up since the change is turned off, and it gets a password reset link |
 | `POST /api/account/email/confirm/{id}/{hash}` | The link from that email, posted by `/confirm-email` while logged in: the new address becomes the email (verified), and other devices are signed out. `DELETE /api/account/email/pending` cancels the request |
 | `PUT /api/account/password` | `current_password`, `password`, `password_confirmation`; other devices are signed out |
-| `DELETE /api/account` | `password`. Refused (422) while you're the last owner of an organization with other members; organizations where you're alone are deleted with their data, and you leave the others |
+| `DELETE /api/account` | `password`. Refused (422) while you're the last owner of an organization with other members, or the only member of one with a paid plan that still renews; organizations where you're alone are deleted with their data, and you leave the others |
 | `POST /api/account/two-factor` | `current_password`: starts the setup and returns `secret` and `otpauth_uri` (for the QR code); still off |
 | `POST /api/account/two-factor/confirm` | `code` from the app: turns it on, signs out other devices and returns 8 `recovery_codes` (shown once) |
 | `POST /api/account/two-factor/recovery-codes` | `current_password`, `code`: a new set of recovery codes; the old ones stop working |
@@ -123,11 +138,17 @@ The API answers on `http://localhost:8100/api`:
 | `GET /api/audit-logs` | The organization's audit log, newest first, 25 at a time (`meta.next_cursor`, sent back as `cursor`). Filters: `action`, `actor` (a user id), `from` and `to` (`YYYY-MM-DD`). Needs `audit_log.view`; IP addresses only for owners |
 | `GET /api/audit-log/actions` | The action catalogue for the filter (`value`, `label`, `group`) |
 | `GET /api/ai-usage` | One month (`month=YYYY-MM`, default this one, UTC) of AI usage: `totals`, `by_feature`, `by_user`, `by_day` (calls, failed, tokens, cost), this month's `budget` and `can.manage_budget`. Needs `ai_usage.view` |
-| `PUT /api/ai-budget` | Set the monthly AI budget (`monthly_budget_usd`: 0–10,000, cents at most; `null` = the default). Needs `ai_budget.manage` (Owner) and a verified email; 20 a minute |
+| `PUT /api/ai-budget` | Set the monthly AI budget (`monthly_budget_usd`: 0 up to the plan's budget, cents at most; `null` = the plan's budget). Needs `ai_budget.manage` (Owner) and a verified email; 20 a minute |
+| `GET /api/billing` | The plan, subscription (`status`, `ends_at`), card, the plans and credit packs on offer, the AI budget with credits, and `can`. Needs `billing.manage` (Owner); no Stripe call |
+| `POST /api/billing/checkout` | `plan` (a key: `pro`); returns `{url}` of Stripe Checkout. Refused while a subscription is still billed. Verified email |
+| `POST /api/billing/credits/checkout` | `pack` (a key: `credits_10`); returns `{url}` of Stripe Checkout. The credits last until the end of the UTC month |
+| `POST /api/billing/portal` | Returns `{url}` of Stripe's Customer Portal (card, cancel), once the organization has paid once |
+| `GET /api/billing/invoices` | The organization's invoices from Stripe, newest first, 20 at a time (`meta.next_cursor`, sent back as `starting_after`); links only to Stripe's own pages |
+| `POST /api/stripe/webhook` | From Stripe only (signed): keeps subscriptions in sync and grants paid credits. 120 a minute |
 
-Organization-scoped routes (members, invitations, tasks, roles, audit log, AI usage) act on your current organization: there's never an organization id in the URL.
+Organization-scoped routes (members, invitations, tasks, roles, audit log, AI usage, billing) act on your current organization: there's never an organization id in the URL.
 
-Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email.
+Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email. Billing routes that call Stripe allow 20 a minute per person and 60 per organization.
 
 ## Tests
 ```bash
@@ -157,11 +178,13 @@ GitHub Actions runs all of these on every push to `main` and every pull request 
 | ![Audit log](docs/screenshots/audit-log.png) | ![An AI task summary to review](docs/screenshots/task-summary.png) |
 | **Audit log**: who changed what, with old → new values; filter by action, person and dates | **AI summary** of a task: a draft to approve, edit or reject |
 | ![AI usage](docs/screenshots/ai-usage.png) | ![AI writing help](docs/screenshots/task-writing-help.png) |
-| **AI usage**: the month's budget, and calls and cost by feature, person and day | **AI writing help** in the task form: a streamed suggestion to accept, try again or discard |
+| **AI usage**: the month's budget (the plan's, plus AI credits), and calls and cost by feature, person and day | **AI writing help** in the task form: a streamed suggestion to accept, try again or discard |
 | ![Task chat](docs/screenshots/task-chat.png) | ![Account settings](docs/screenshots/account.png) |
 | **Ask AI**: a private chat about a task, answers streamed | **Account settings**: name, email, password, two-factor, signed-in devices, delete account |
-| ![Two-factor setup](docs/screenshots/two-factor-setup.png) | |
-| **Two-factor setup**: scan the QR code (or type the key), then enter a code from the app | |
+| ![Two-factor setup](docs/screenshots/two-factor-setup.png) | ![Billing](docs/screenshots/billing.png) |
+| **Two-factor setup**: scan the QR code (or type the key), then enter a code from the app | **Billing**: the plan and card, the AI budget with credits, and a credit pack to buy, all paid on Stripe |
+| ![Invoices](docs/screenshots/invoices.png) | |
+| **Invoices**: the organization's invoices and receipts from Stripe, each opening Stripe's copy | |
 
 ## Working with Claude Code
 The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.

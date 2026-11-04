@@ -27,6 +27,7 @@ export const acme: Organization = {
     'ai.use',
     'ai_usage.view',
     'ai_budget.manage',
+    'billing.manage',
   ],
   created_at: '2026-10-01T12:00:00.000000Z',
 }

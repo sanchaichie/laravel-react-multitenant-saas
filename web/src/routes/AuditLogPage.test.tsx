@@ -134,6 +134,46 @@ describe('AuditLogPage', () => {
     expect(within(roleRow!).getByText('Removed:')).toBeInTheDocument()
   })
 
+  it('names Stripe for the plan changes and payments it reported', async () => {
+    logIn()
+    api({
+      'GET /api/audit-logs': () =>
+        jsonResponse(
+          page([
+            entry({
+              action: 'billing.plan_changed',
+              action_label: 'Changed the plan',
+              actor: null,
+              subject: { type: 'organization', id: acme.id, label: 'Acme' },
+              changes: { plan: { old: 'Free', new: 'Pro' } },
+              metadata: { source: 'stripe' },
+            }),
+            entry({
+              action: 'billing.credits_purchased',
+              action_label: 'Bought AI credits',
+              subject: { type: 'organization', id: acme.id, label: 'Acme' },
+              metadata: { source: 'stripe', pack: '$10 of AI credits', amount_usd: 10 },
+            }),
+          ]),
+        ),
+    })
+    const { user } = renderApp('/audit-log')
+
+    const [plan, credits] = within(await screen.findByRole('list', { name: 'Audit log entries' })).getAllByRole('listitem')
+    expect(plan).toHaveTextContent('Stripe changed the plan: Acme')
+    await user.click(within(plan!).getByRole('button', { name: 'Details' }))
+    expect(within(plan!).getByText('Plan')).toBeInTheDocument()
+    expect(within(plan!).getByText('Free')).toBeInTheDocument()
+    expect(within(plan!).getByText('Pro')).toBeInTheDocument()
+    expect(within(plan!).getByText('Reported by Stripe')).toBeInTheDocument()
+
+    // The buyer, while still a member.
+    expect(credits).toHaveTextContent(`${ada.name} bought AI credits: Acme`)
+    await user.click(within(credits!).getByRole('button', { name: 'Details' }))
+    expect(within(credits!).getByText('$10 of AI credits')).toBeInTheDocument()
+    expect(within(credits!).getByText('$10.00')).toBeInTheDocument()
+  })
+
   it('keeps filters in the URL and sends them to the API', async () => {
     logIn()
     const fetchMock = api()

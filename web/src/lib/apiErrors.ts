@@ -40,6 +40,10 @@ export function errorMessage(error: unknown): string {
     if (error.status === 429) {
       return 'Too many attempts. Wait a minute and try again.'
     }
+    // Stripe couldn't be reached (BillingUnavailable): the API's own message, written to be shown.
+    if (error.status === 503 && error.data?.code === 'billing_unavailable' && error.data.message) {
+      return error.data.message
+    }
     // A 500's message is exception text in debug mode, not something to show.
     if (error.status < 500 && error.data?.message) {
       return error.data.message

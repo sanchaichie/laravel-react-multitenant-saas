@@ -34,3 +34,11 @@ const dayFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', tim
 export function formatDay(day: string): string {
   return dayFormatter.format(new Date(`${day}T00:00:00Z`))
 }
+
+/**
+ * The last day before an exclusive end (ISO 8601), e.g. "2026-12-01T00:00:00Z" →
+ * "Nov 30, 2026": what "until" means to a reader.
+ */
+export function formatLastDay(exclusiveEnd: string): string {
+  return dateFormatter.format(new Date(Date.parse(exclusiveEnd) - 1))
+}

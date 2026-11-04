@@ -11,6 +11,7 @@ export type Permission =
   | 'ai.use'
   | 'ai_usage.view'
   | 'ai_budget.manage'
+  | 'billing.manage'
 
 /** A role where something has one (you, a member, an invitation). Roles are per organization. */
 export interface Role {
@@ -292,12 +293,20 @@ export interface AuditFilters {
 
 /** The current month's AI budget (GET /api/ai-usage, PUT /api/ai-budget). Amounts in USD. */
 export interface AiBudget {
+  /** What can be spent this month: the own budget (or the plan's), plus credits. */
   limit_usd: number
-  /** No own budget: the app-wide default applies. */
+  /** No own budget: the plan's budget applies. */
   is_default: boolean
-  /** What the organization set; null uses the default. 0 turns AI off. */
+  /** What the organization set; null uses the plan's. 0 turns AI off, credits or not. */
   own_limit_usd: number | null
+  /** The plan's budget: what applies by default, and the most an own budget can be. */
   default_limit_usd: number
+  /** The plan's name, e.g. "Free". */
+  plan: string
+  /** AI credits bought this month, already in limit_usd. */
+  credits_usd: number
+  /** When this month's credits run out: the start of next month (UTC), ISO 8601. */
+  credits_expire_at: string
   spent_usd: number
   remaining_usd: number
 }
@@ -349,4 +358,70 @@ export interface Device {
   created_at: string
   /** The device this request came from. */
   is_current: boolean
+}
+
+/** A plan from the API's config. The client only ever sends its key. */
+export interface BillingPlan {
+  key: string
+  name: string
+  /** For display only: Stripe charges the price's own amount. */
+  display_price: string
+  ai_monthly_budget_usd: number
+  is_paid: boolean
+}
+
+/** A one-time AI credit pack. `available`: it has a Stripe price and can be bought. */
+export interface CreditPack {
+  key: string
+  name: string
+  display_price: string
+  amount_usd: number
+  available: boolean
+}
+
+/** Stripe's status of a subscription (past_due: Stripe is retrying the card). */
+export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'canceled' | 'paused'
+
+/** The current organization's billing (GET /api/billing). Read from the API's own tables. */
+export interface Billing {
+  plan: BillingPlan
+  /** null: never subscribed, or the last subscription has ended. */
+  subscription: {
+    status: SubscriptionStatus
+    /** Set once canceled: the plan stays until then. ISO 8601. */
+    ends_at: string | null
+    on_grace_period: boolean
+  } | null
+  /** The card on file, e.g. {brand: 'visa', last_four: '4242'}. */
+  payment_method: { brand: string; last_four: string | null } | null
+  has_billing_account: boolean
+  plans: BillingPlan[]
+  credit_packs: CreditPack[]
+  ai_budget: AiBudget
+  can: { subscribe: boolean; open_portal: boolean; buy_credits: boolean }
+}
+
+/** paid, open (due), void or uncollectible; drafts are never listed. */
+export type InvoiceStatus = 'paid' | 'open' | 'void' | 'uncollectible'
+
+/** An invoice, read live from Stripe (GET /api/billing/invoices). */
+export interface Invoice {
+  id: string
+  number: string | null
+  status: InvoiceStatus
+  /** In the currency's smallest unit (cents). */
+  total: number
+  /** Lowercase ISO code, e.g. "usd". */
+  currency: string
+  description: string | null
+  created_at: string
+  /** Stripe's hosted page and PDF; null when Stripe gave none (or not a Stripe link). */
+  hosted_url: string | null
+  pdf_url: string | null
+}
+
+/** One page of invoices: next_cursor goes back as starting_after. */
+export interface InvoicePage {
+  data: Invoice[]
+  meta: { next_cursor: string | null }
 }

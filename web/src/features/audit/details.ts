@@ -1,3 +1,4 @@
+import { formatUsd } from '@/lib/format'
 import type { AuditLog } from '@/types/api'
 
 // What AuditDetails shows, kept out of the component file (fast refresh wants
@@ -19,6 +20,9 @@ export function metadataFacts(metadata: AuditLog['metadata']): [string, string][
   }
   if (metadata.edited === true) facts.push(['Edits', 'Edited before approving'])
   if (metadata.source === 'backfill') facts.push(['How', 'Requested by the ai:summarize-tasks command'])
+  if (typeof metadata.pack === 'string') facts.push(['Credit pack', metadata.pack])
+  if (typeof metadata.amount_usd === 'number') facts.push(['Amount', formatUsd(metadata.amount_usd)])
+  if (metadata.source === 'stripe') facts.push(['How', 'Reported by Stripe'])
   return facts
 }
 

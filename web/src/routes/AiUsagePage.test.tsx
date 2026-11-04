@@ -19,6 +19,9 @@ const budget = (overrides: Partial<AiBudget> = {}): AiBudget => ({
   is_default: true,
   own_limit_usd: null,
   default_limit_usd: 5,
+  plan: 'Free',
+  credits_usd: 0,
+  credits_expire_at: '2026-11-01T00:00:00Z',
   spent_usd: 1.2,
   remaining_usd: 3.8,
   ...overrides,
@@ -62,7 +65,7 @@ describe('AiUsagePage', () => {
     expect(screen.getByText('$1.20 of $5.00 spent this month')).toBeInTheDocument()
     // 1.20 of 5.00: screen readers get the value, not just the label.
     expect(screen.getByRole('progressbar', { name: '$1.20 of $5.00 spent this month' })).toHaveAttribute('aria-valuenow', '24')
-    expect(screen.getByText('Default')).toBeInTheDocument()
+    expect(screen.getByText('Free plan')).toBeInTheDocument()
 
     const totals = screen.getByRole('region', { name: 'Totals' })
     expect(within(totals).getByText('Calls').nextSibling).toHaveTextContent('3')
@@ -159,18 +162,18 @@ describe('AiUsagePage', () => {
     // Custom: uncheck the default, type an amount.
     await user.click(await screen.findByRole('button', { name: 'Edit budget' }))
     let dialog = await screen.findByRole('dialog', { name: 'Monthly AI budget' })
-    await user.click(within(dialog).getByRole('checkbox', { name: 'Use the default ($5.00)' }))
-    await user.type(within(dialog).getByLabelText('Budget per month (USD)'), '25')
+    await user.click(within(dialog).getByRole('checkbox', { name: "Use the Free plan's budget ($5.00)" }))
+    await user.type(within(dialog).getByLabelText('Budget per month (USD)'), '2.5')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(await screen.findByText('$1.20 of $25.00 spent this month')).toBeInTheDocument()
+    expect(await screen.findByText('$1.20 of $2.50 spent this month')).toBeInTheDocument()
     expect(screen.getByText('Custom')).toBeInTheDocument()
 
     // 0: AI off.
     await user.click(screen.getByRole('button', { name: 'Edit budget' }))
     dialog = await screen.findByRole('dialog', { name: 'Monthly AI budget' })
     const amount = within(dialog).getByLabelText('Budget per month (USD)')
-    expect(amount).toHaveValue('25.00')
+    expect(amount).toHaveValue('2.50')
     await user.clear(amount)
     await user.type(amount, '0')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
@@ -179,39 +182,63 @@ describe('AiUsagePage', () => {
     // Back to the default.
     await user.click(screen.getByRole('button', { name: 'Edit budget' }))
     dialog = await screen.findByRole('dialog', { name: 'Monthly AI budget' })
-    await user.click(within(dialog).getByRole('checkbox', { name: 'Use the default ($5.00)' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: "Use the Free plan's budget ($5.00)" }))
     expect(within(dialog).getByLabelText('Budget per month (USD)')).toBeDisabled()
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     expect(await screen.findByText('$1.20 of $5.00 spent this month')).toBeInTheDocument()
 
-    expect(sent).toEqual([{ monthly_budget_usd: 25 }, { monthly_budget_usd: 0 }, { monthly_budget_usd: null }])
+    expect(sent).toEqual([{ monthly_budget_usd: 2.5 }, { monthly_budget_usd: 0 }, { monthly_budget_usd: null }])
   })
 
   it('checks the amount, and shows the API\'s 422 on the field', async () => {
     logIn()
     api({
       'PUT /api/ai-budget': () =>
-        jsonResponse({ message: 'Invalid', errors: { monthly_budget_usd: ['The budget can be at most $10,000 a month.'] } }, 422),
+        jsonResponse({ message: 'Invalid', errors: { monthly_budget_usd: ['Refused by the server.'] } }, 422),
     })
     const { user } = renderApp('/ai-usage')
 
     await user.click(await screen.findByRole('button', { name: 'Edit budget' }))
     const dialog = await screen.findByRole('dialog', { name: 'Monthly AI budget' })
-    await user.click(within(dialog).getByRole('checkbox', { name: 'Use the default ($5.00)' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: "Use the Free plan's budget ($5.00)" }))
     const amount = within(dialog).getByLabelText('Budget per month (USD)')
 
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
-    expect(await within(dialog).findByText('Enter an amount, or use the default.')).toBeInTheDocument()
+    expect(await within(dialog).findByText("Enter an amount, or use the plan's budget.")).toBeInTheDocument()
 
     await user.type(amount, '1.005')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     expect(await within(dialog).findByText('Use at most 2 decimals (cents).')).toBeInTheDocument()
 
+    // Above the plan's budget: refused before asking the API.
     await user.clear(amount)
-    await user.type(amount, '9999')
+    await user.type(amount, '5.01')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
-    expect(await within(dialog).findByText('The budget can be at most $10,000 a month.')).toBeInTheDocument()
+    expect(await within(dialog).findByText('The Free plan allows at most $5.00 a month.')).toBeInTheDocument()
+
+    // The API's own refusal lands on the field.
+    await user.clear(amount)
+    await user.type(amount, '4')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(dialog).findByText('Refused by the server.')).toBeInTheDocument()
     expect(amount).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('shows AI credits in the budget, and allows up to the plan\'s budget', async () => {
+    logIn()
+    api({
+      'GET /api/ai-usage': () =>
+        jsonResponse(report({ budget: budget({ plan: 'Pro', default_limit_usd: 50, limit_usd: 60, credits_usd: 10, remaining_usd: 58.8 }) })),
+    })
+    const { user } = renderApp('/ai-usage')
+
+    expect(await screen.findByText('$1.20 of $60.00 spent this month')).toBeInTheDocument()
+    expect(screen.getByText(/Includes \$10\.00 of AI credits, through Oct 31, 2026\./)).toBeInTheDocument()
+    expect(screen.getByText('Pro plan')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Edit budget' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Monthly AI budget' })
+    expect(within(dialog).getByText(/At most \$50\.00 on the Pro plan/)).toBeInTheDocument()
   })
 
   it('gives focus back to Edit budget when the dialog closes', async () => {

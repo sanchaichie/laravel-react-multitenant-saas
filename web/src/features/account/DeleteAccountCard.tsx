@@ -82,8 +82,8 @@ function DeleteAccountForm({ onCancel }: { onCancel: () => void }) {
       {blocked && (
         <Alert variant="destructive">
           <AlertDescription>
-            {blocked} Switch to that organization from the menu at the top of the sidebar, then change roles on its
-            Members page.
+            {/* The API names what to do (make someone Owner, or cancel a plan); this says where. */}
+            {blocked} Switch to that organization from the menu at the top of the sidebar to do it there.
           </AlertDescription>
         </Alert>
       )}

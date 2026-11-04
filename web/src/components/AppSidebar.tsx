@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { LayoutDashboardIcon, ListTodoIcon, ScrollTextIcon, ShieldIcon, SparklesIcon, UsersIcon } from 'lucide-react'
+import { CreditCardIcon, LayoutDashboardIcon, ListTodoIcon, ScrollTextIcon, ShieldIcon, SparklesIcon, UsersIcon } from 'lucide-react'
 import { NavLink, useMatch } from 'react-router'
 import {
   Sidebar,
@@ -35,6 +35,8 @@ const navigation: NavItem[] = [
   { to: '/roles', label: 'Roles', icon: ShieldIcon },
   { to: '/audit-log', label: 'Audit log', icon: ScrollTextIcon, permission: 'audit_log.view' },
   { to: '/ai-usage', label: 'AI usage', icon: SparklesIcon, permission: 'ai_usage.view' },
+  // Also active on /billing/invoices (not an exact match, like Tasks).
+  { to: '/billing', label: 'Billing', icon: CreditCardIcon, permission: 'billing.manage' },
 ]
 
 export function AppSidebar() {

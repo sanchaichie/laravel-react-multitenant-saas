@@ -36,7 +36,7 @@ function AuditLogRow({ entry, permissions }: { entry: AuditLog; permissions: Per
             {formatDateTime(entry.created_at)}
           </time>
           <p className="min-w-0 flex-1 text-sm break-words">
-            <span className="font-medium">{entry.actor?.name ?? 'Someone'}</span>{' '}
+            <span className="font-medium">{actorName(entry)}</span>{' '}
             <span className="text-muted-foreground">{lowerFirst(entry.action_label)}</span>
             {subjectLabel && (
               <>
@@ -62,6 +62,12 @@ function AuditLogRow({ entry, permissions }: { entry: AuditLog; permissions: Per
       </Collapsible>
     </li>
   )
+}
+
+/** Who did it: a person, Stripe (plan changes and payments it reported), or someone unknown. */
+function actorName(entry: AuditLog): string {
+  if (entry.actor) return entry.actor.name
+  return entry.metadata.source === 'stripe' ? 'Stripe' : 'Someone'
 }
 
 /** "Changed the AI budget" → "changed the AI budget": mid-sentence, keeping acronyms. */

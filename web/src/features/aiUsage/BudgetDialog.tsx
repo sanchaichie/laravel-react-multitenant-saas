@@ -15,28 +15,34 @@ import { formatUsd } from '@/lib/format'
 import type { AiBudget } from '@/types/api'
 import { useUpdateAiBudget } from './api'
 
-// The API's limits (UpdateAiBudgetRequest), checked here first for quick feedback.
-const MAX_BUDGET = 10_000
+const fields = z.object({
+  use_default: z.boolean(),
+  // The input's text: it may be empty while "use the plan's budget" is checked.
+  monthly_budget_usd: z.string().trim(),
+})
 
-const schema = z
-  .object({
-    use_default: z.boolean(),
-    // The input's text: it may be empty while "use the default" is checked.
-    monthly_budget_usd: z.string().trim(),
-  })
-  // The amount only matters without the default: a check across two fields.
-  .superRefine((values, ctx) => {
+type Values = z.infer<typeof fields>
+
+/**
+ * The API's rules (UpdateAiBudgetRequest), checked here first for quick feedback. A
+ * function of the budget: the most an organization can set is its plan's budget, which
+ * the API sends (default_limit_usd). The API still decides, and its 422 lands on the field.
+ */
+function budgetSchema(budget: AiBudget) {
+  // The amount only matters without the plan's budget: a check across two fields.
+  return fields.superRefine((values, ctx) => {
     if (values.use_default) return
     const issue = (message: string) => ctx.addIssue({ code: 'custom', path: ['monthly_budget_usd'], message })
     const amount = values.monthly_budget_usd
 
-    if (amount === '') return issue('Enter an amount, or use the default.')
+    if (amount === '') return issue("Enter an amount, or use the plan's budget.")
     if (!/^\d+(\.\d+)?$/.test(amount)) return issue('Enter an amount in dollars, e.g. 25 or 12.50.')
     if (!/^\d+(\.\d{1,2})?$/.test(amount)) return issue('Use at most 2 decimals (cents).')
-    if (Number(amount) > MAX_BUDGET) return issue('The budget can be at most $10,000 a month.')
+    if (Number(amount) > budget.default_limit_usd) {
+      return issue(`The ${budget.plan} plan allows at most ${formatUsd(budget.default_limit_usd)} a month.`)
+    }
   })
-
-type Values = z.infer<typeof schema>
+}
 
 interface BudgetDialogProps {
   /** The button that opens it. As the dialog's trigger, it gets focus back on close. */
@@ -46,7 +52,7 @@ interface BudgetDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-/** Change the organization's monthly AI budget, or go back to the default. */
+/** Change the organization's monthly AI budget (up to the plan's), or go back to the plan's. */
 export function BudgetDialog({ children, budget, open, onOpenChange }: BudgetDialogProps) {
   return (
     // Controlled: the page owns `open` (v-model:open on a modal).
@@ -69,7 +75,8 @@ export function BudgetDialog({ children, budget, open, onOpenChange }: BudgetDia
 function BudgetForm({ budget, onDone }: { budget: AiBudget; onDone: () => void }) {
   const update = useUpdateAiBudget()
   const form = useForm<Values>({
-    resolver: zodResolver(schema),
+    // Built once per opening (the form mounts with the dialog), from the budget it opened with.
+    resolver: zodResolver(budgetSchema(budget)),
     defaultValues: {
       use_default: budget.is_default,
       monthly_budget_usd: budget.own_limit_usd === null ? '' : budget.own_limit_usd.toFixed(2),
@@ -111,7 +118,7 @@ function BudgetForm({ budget, onDone }: { budget: AiBudget; onDone: () => void }
                 }}
               />
               <FieldLabel htmlFor="budget-use-default" className="font-normal">
-                Use the default ({formatUsd(budget.default_limit_usd)})
+                Use the {budget.plan} plan's budget ({formatUsd(budget.default_limit_usd)})
               </FieldLabel>
             </Field>
           )}
@@ -129,7 +136,9 @@ function BudgetForm({ budget, onDone }: { budget: AiBudget; onDone: () => void }
             aria-describedby={describedBy('budget-amount-hint', errors.monthly_budget_usd && 'budget-amount-error')}
             {...form.register('monthly_budget_usd')}
           />
-          <FieldDescription id="budget-amount-hint">0 turns AI off. At most $10,000.</FieldDescription>
+          <FieldDescription id="budget-amount-hint">
+            0 turns AI off. At most {formatUsd(budget.default_limit_usd)} on the {budget.plan} plan; AI credits come on top.
+          </FieldDescription>
           <FieldError id="budget-amount-error" errors={[errors.monthly_budget_usd]} />
         </Field>
 

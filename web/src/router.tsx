@@ -6,9 +6,11 @@ import { RequireGuest } from '@/components/RequireGuest'
 import { AccountPage } from '@/routes/AccountPage'
 import { AiUsagePage } from '@/routes/AiUsagePage'
 import { AuditLogPage } from '@/routes/AuditLogPage'
+import { BillingPage } from '@/routes/BillingPage'
 import { ConfirmEmailPage } from '@/routes/ConfirmEmailPage'
 import { ForgotPasswordPage } from '@/routes/ForgotPasswordPage'
 import { HomePage } from '@/routes/HomePage'
+import { InvoicesPage } from '@/routes/InvoicesPage'
 import { JoinPage } from '@/routes/JoinPage'
 import { LoginPage } from '@/routes/LoginPage'
 import { MembersPage } from '@/routes/MembersPage'
@@ -66,6 +68,8 @@ export const routes: RouteObject[] = [
               { path: 'roles', element: <RolesPage /> },
               { path: 'audit-log', element: <AuditLogPage /> },
               { path: 'ai-usage', element: <AiUsagePage /> },
+              { path: 'billing', element: <BillingPage /> },
+              { path: 'billing/invoices', element: <InvoicesPage /> },
               { path: 'account', element: <AccountPage /> },
             ],
           },

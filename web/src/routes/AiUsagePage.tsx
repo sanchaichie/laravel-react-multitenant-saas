@@ -16,7 +16,7 @@ import { featureLabel, parseMonth } from '@/features/aiUsage/labels'
 import { useCan } from '@/hooks/useCan'
 import { ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
-import { formatDay, formatMonth, formatUsd } from '@/lib/format'
+import { formatDay, formatLastDay, formatMonth, formatUsd } from '@/lib/format'
 import { useCurrentOrganization } from '@/stores/auth'
 import type { AiBudget, AiUsageReport, AiUsageRow } from '@/types/api'
 
@@ -157,7 +157,7 @@ function BudgetCard({ budget, editButton }: { budget: AiBudget; editButton: Reac
         <CardTitle>
           <h2 className="flex items-center gap-2">
             Monthly budget
-            <Badge variant="secondary">{budget.is_default ? 'Default' : 'Custom'}</Badge>
+            <Badge variant="secondary">{budget.is_default ? `${budget.plan} plan` : 'Custom'}</Badge>
           </h2>
         </CardTitle>
         <CardDescription>
@@ -166,6 +166,8 @@ function BudgetCard({ budget, editButton }: { budget: AiBudget; editButton: Reac
             : usedUp
               ? 'Used up: AI work is paused until the 1st (UTC), or until the budget is raised.'
               : `${formatUsd(budget.remaining_usd)} left. Resets on the 1st (UTC).`}
+          {budget.credits_usd > 0 &&
+            ` Includes ${formatUsd(budget.credits_usd)} of AI credits, through ${formatLastDay(budget.credits_expire_at)}.`}
         </CardDescription>
         {editButton && <CardAction>{editButton}</CardAction>}
       </CardHeader>

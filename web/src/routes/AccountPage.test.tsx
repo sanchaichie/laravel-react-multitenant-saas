@@ -157,7 +157,7 @@ describe('AccountPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Delete my account' }))
 
     expect(await within(dialog).findByText(/You're the last owner of Acme/)).toBeInTheDocument()
-    expect(within(dialog).getByText(/then change roles on its Members page/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Switch to that organization from the menu at the top of the sidebar to do it there/)).toBeInTheDocument()
 
     blocked = false
     await user.click(within(dialog).getByRole('button', { name: 'Delete my account' }))
