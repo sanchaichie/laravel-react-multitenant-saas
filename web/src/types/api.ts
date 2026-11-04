@@ -60,6 +60,8 @@ export interface User {
   name: string
   email: string
   email_verified: boolean
+  /** A requested email change, until the link sent to the new address is followed. */
+  pending_email: string | null
   /** Kept on the server (switching changes it); null once removed from it. */
   current_organization: Organization | null
   created_at: string
@@ -318,4 +320,16 @@ export interface TaskChatMessage {
   /** An answer is stopped (cancelled, or still being written), failed, or complete. */
   status: 'complete' | 'stopped' | 'failed'
   created_at: string
+}
+
+/** One of your signed-in devices (an API token). Never the token itself. */
+export interface Device {
+  id: number
+  /** e.g. "Chrome on macOS" */
+  name: string
+  ip_address: string | null
+  last_used_at: string | null
+  created_at: string
+  /** The device this request came from. */
+  is_current: boolean
 }

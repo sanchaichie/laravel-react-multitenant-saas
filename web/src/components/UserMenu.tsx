@@ -1,4 +1,5 @@
-import { ChevronsUpDownIcon, CircleUserIcon, LogOutIcon, PaletteIcon } from 'lucide-react'
+import { ChevronsUpDownIcon, CircleUserIcon, LogOutIcon, PaletteIcon, SettingsIcon } from 'lucide-react'
+import { Link } from 'react-router'
 import { useTheme } from 'next-themes'
 import {
   DropdownMenu,
@@ -50,6 +51,12 @@ export function UserMenu() {
               <span className="truncate text-xs text-muted-foreground">{user.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/account">
+                <SettingsIcon />
+                Account settings
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <PaletteIcon />

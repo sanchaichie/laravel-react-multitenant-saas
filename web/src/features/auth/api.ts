@@ -11,28 +11,57 @@ import type { AuthResponse, LoginPayload, OrganizationList, RegisterPayload, Use
 // Mutations, not queries: these change the session rather than read data. On
 // success they store it, and RequireGuest (which reads the store) sends the user on.
 
-export function useLogin() {
+/**
+ * A new session (login, password reset) with the user's organizations loaded first,
+ * so the guard knows at once whether to ask which one (more than one). If that call
+ * fails, log in anyway and skip the question. A plain function, not a hook: it needs
+ * no React state, only the token it was given.
+ */
+async function withOrganizations(session: AuthResponse) {
+  const organizations = await apiFetch<OrganizationList>('/api/organizations', { token: session.token }).catch(() => null)
+
+  return { ...session, organizations }
+}
+
+/** Store a session from withOrganizations(); RequireGuest then sends the user on. */
+function useStartSession() {
   const setSession = useAuth((s) => s.setSession)
   const queryClient = useQueryClient()
 
-  return useMutation({
-    // Load the organizations with the new token before storing the session, so the
-    // guard knows at once whether to ask which one (more than one). If that call
-    // fails, log in anyway and skip the question.
-    mutationFn: async (payload: LoginPayload) => {
-      const session = await apiFetch<AuthResponse>('/api/login', { method: 'POST', body: payload })
-      const organizations = await apiFetch<OrganizationList>('/api/organizations', { token: session.token }).catch(
-        () => null,
-      )
+  return ({ token, user, organizations }: Awaited<ReturnType<typeof withOrganizations>>) => {
+    if (organizations) {
+      queryClient.setQueryData(organizationsQuery.queryKey, organizations)
+    }
+    setSession(token, user, { chooseOrganization: (organizations?.data.length ?? 0) > 1 })
+  }
+}
 
-      return { ...session, organizations }
-    },
-    onSuccess: ({ token, user, organizations }) => {
-      if (organizations) {
-        queryClient.setQueryData(organizationsQuery.queryKey, organizations)
-      }
-      setSession(token, user, { chooseOrganization: (organizations?.data.length ?? 0) > 1 })
-    },
+export function useLogin() {
+  const startSession = useStartSession()
+
+  return useMutation({
+    mutationFn: async (payload: LoginPayload) =>
+      withOrganizations(await apiFetch<AuthResponse>('/api/login', { method: 'POST', body: payload })),
+    onSuccess: startSession,
+  })
+}
+
+/** Always the same answer, whether an account uses the address or not. */
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      apiFetch<{ message: string }>('/api/forgot-password', { method: 'POST', body: { email: email.toLowerCase() } }),
+  })
+}
+
+/** The link's token and email plus the new password; logs in like a login. */
+export function useResetPassword() {
+  const startSession = useStartSession()
+
+  return useMutation({
+    mutationFn: async (payload: { token: string; email: string; password: string; password_confirmation: string }) =>
+      withOrganizations(await apiFetch<AuthResponse>('/api/reset-password', { method: 'POST', body: payload })),
+    onSuccess: startSession,
   })
 }
 

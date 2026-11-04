@@ -43,6 +43,7 @@ export const ada: User = {
   name: 'Ada Lovelace',
   email: 'ada@example.com',
   email_verified: true,
+  pending_email: null,
   current_organization: acme,
   created_at: '2026-10-01T12:00:00.000000Z',
 }

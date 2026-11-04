@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -49,7 +50,12 @@ export function LoginForm() {
         </Field>
 
         <Field data-invalid={!!errors.password}>
-          <FieldLabel htmlFor="login-password">Password</FieldLabel>
+          <div className="flex items-center justify-between gap-2">
+            <FieldLabel htmlFor="login-password">Password</FieldLabel>
+            <Link to="/forgot-password" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="login-password"
             type="password"
