@@ -12,14 +12,16 @@ import { useCan } from '@/hooks/useCan'
 import { ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
 import { formatDate } from '@/lib/format'
-import { useCurrentOrganization } from '@/stores/auth'
+import { useAuth, useCurrentOrganization } from '@/stores/auth'
 import type { Invoice, InvoiceStatus } from '@/types/api'
 
 /** The organization's invoices, read live from Stripe, 20 at a time ("Load more"). */
 export function InvoicesPage() {
   const organization = useCurrentOrganization()
   const canManage = useCan('billing.manage')
-  const invoices = useInvoices(canManage)
+  // A platform admin's support view: invoices come live from Stripe with billing details, so the API hides them.
+  const supportView = useAuth((s) => s.user?.impersonated_by != null)
+  const invoices = useInvoices(canManage && !supportView)
 
   if (!organization) {
     return (
@@ -28,6 +30,10 @@ export function InvoicesPage() {
         description="Choose or create one from the switcher in the sidebar to see its invoices."
       />
     )
+  }
+
+  if (supportView) {
+    return <ErrorState title="Invoices are hidden in the support view" description="They come from Stripe with the organization's billing details." />
   }
 
   if (!canManage || (invoices.error instanceof ApiError && invoices.error.status === 403)) {

@@ -65,6 +65,10 @@ export interface User {
   pending_email: string | null
   /** Logging in asks for a code from an authenticator app. */
   two_factor_enabled: boolean
+  /** Runs the app: shows the admin area (the API checks it again on every admin route). */
+  is_platform_admin: boolean
+  /** A platform admin's read-only support view of this account: who, and when it ends (ISO 8601). */
+  impersonated_by: { name: string; expires_at: string } | null
   /** Kept on the server (switching changes it); null once removed from it. */
   current_organization: Organization | null
   created_at: string
@@ -175,7 +179,10 @@ export interface TaskPerson {
 export interface Task {
   id: number
   title: string
+  /** Null in a platform admin's support view (content_hidden). */
   description: string | null
+  /** A platform admin's support view: no description, summary or chat. */
+  content_hidden: boolean
   status: TaskStatus
   priority: TaskPriority
   /** A plain date, 'YYYY-MM-DD' (no time zone). */
@@ -265,6 +272,8 @@ export interface AuditLog {
   action_label: string
   /** Null for something no logged-in user did, or once they've deleted their account. */
   actor: { id: number; name: string } | null
+  /** Support (a platform admin) did it: shown as "Platform admin", never who. */
+  by_platform_admin: boolean
   /** What it was about, with its name at the time (it may be gone since). */
   subject: { type: string; id: number | null; label: string | null } | null
   changes: Record<string, { old: unknown; new: unknown }>
@@ -425,3 +434,74 @@ export interface InvoicePage {
   data: Invoice[]
   meta: { next_cursor: string | null }
 }
+
+// ---- Platform admin (GET /api/admin/*). Only platform admins get these. ----
+
+/** A role as the admin pages show it. */
+export interface AdminRole {
+  id: number
+  name: string
+  is_owner: boolean
+}
+
+/** A user in the admin search (GET /api/admin/users). */
+export interface AdminUser {
+  id: number
+  name: string
+  email: string
+  email_verified: boolean
+  two_factor_enabled: boolean
+  is_platform_admin: boolean
+  /** Suspended by a platform admin (can't log in); null when not. */
+  suspended_at: string | null
+  organizations_count: number
+  created_at: string
+}
+
+/** One user for an admin (GET /api/admin/users/{id}). */
+export interface AdminUserDetail extends AdminUser {
+  devices_count: number
+  /** When one of their devices last called the API; null if never. */
+  last_active_at: string | null
+  organizations: Array<{ id: number; name: string; role: AdminRole; joined_at: string }>
+}
+
+/** An organization in the admin search (GET /api/admin/organizations). */
+export interface AdminOrganization {
+  id: number
+  name: string
+  members_count: number
+  /** A plan key, e.g. "free" or "pro". */
+  plan: string
+  created_at: string
+}
+
+/** One organization for an admin (GET /api/admin/organizations/{id}). No task content. */
+export interface AdminOrganizationDetail {
+  id: number
+  name: string
+  created_at: string
+  plan: BillingPlan
+  /** The newest subscription, ended or not; null if it never subscribed. */
+  subscription: { status: string; ends_at: string | null; created_at: string } | null
+  ai_budget: AiBudget
+  counts: { members: number; tasks: number; pending_invitations: number }
+  /** The first members_limit members, by join date (counts.members has them all). */
+  members: Array<{ id: number; name: string; email: string; is_platform_admin: boolean; role: AdminRole; joined_at: string }>
+  members_limit: number
+}
+
+/** One platform audit log entry (GET /api/admin/audit-log). */
+export interface PlatformAuditLogEntry {
+  id: number
+  /** e.g. "admin.user_viewed" (App\\Enums\\PlatformAuditAction). */
+  action: string
+  action_label: string
+  /** Null from the console (admin:grant / admin:revoke), or a deleted admin. */
+  actor: { id: number; name: string; email: string } | null
+  subject: { type: string; id: number | null; label: string | null } | null
+  metadata: Record<string, unknown>
+  ip_address: string | null
+  created_at: string
+}
+

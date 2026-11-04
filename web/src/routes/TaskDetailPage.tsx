@@ -107,7 +107,7 @@ function TaskDetails({ task }: { task: Task }) {
         <h1 className="min-w-0 text-2xl font-semibold break-words">{task.title}</h1>
         {(task.can.update || task.can.delete || task.can.chat) && (
           <div className="flex flex-wrap gap-2">
-            {task.can.chat && <TaskChatSheet task={task} />}
+            {task.can.chat && !task.content_hidden && <TaskChatSheet task={task} />}
             {task.can.update && (
               <TaskFormDialog task={task}>
                 <Button variant="outline">
@@ -147,7 +147,10 @@ function TaskDetails({ task }: { task: Task }) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {task.description ? (
+              {task.content_hidden ? (
+                // A platform admin viewing as the user: the API sends no description, summary or chat.
+                <p className="text-sm text-muted-foreground">Content hidden in the support view.</p>
+              ) : task.description ? (
                 // Plain text, line breaks kept: user content is never rendered as HTML.
                 <p className="text-sm break-words whitespace-pre-wrap">{task.description}</p>
               ) : (
@@ -155,7 +158,7 @@ function TaskDetails({ task }: { task: Task }) {
               )}
             </CardContent>
           </Card>
-          <TaskSummaryCard task={task} />
+          {!task.content_hidden && <TaskSummaryCard task={task} />}
         </div>
 
         <Card>

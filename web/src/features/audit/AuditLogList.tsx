@@ -64,9 +64,10 @@ function AuditLogRow({ entry, permissions }: { entry: AuditLog; permissions: Per
   )
 }
 
-/** Who did it: a person, Stripe (plan changes and payments it reported), or someone unknown. */
+/** Who did it: a person, support (a platform admin), Stripe (plan changes and payments it reported), or someone unknown. */
 function actorName(entry: AuditLog): string {
   if (entry.actor) return entry.actor.name
+  if (entry.by_platform_admin) return 'Platform admin'
   return entry.metadata.source === 'stripe' ? 'Stripe' : 'Someone'
 }
 

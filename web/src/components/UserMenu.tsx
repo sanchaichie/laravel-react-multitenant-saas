@@ -1,4 +1,4 @@
-import { ChevronsUpDownIcon, CircleUserIcon, LogOutIcon, PaletteIcon, SettingsIcon } from 'lucide-react'
+import { ChevronsUpDownIcon, CircleUserIcon, EyeOffIcon, LogOutIcon, PaletteIcon, SettingsIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { useTheme } from 'next-themes'
 import {
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import { useStopSupportView } from '@/features/admin/api'
 import { useLogout } from '@/features/auth/api'
 import { useAuth } from '@/stores/auth'
 
@@ -22,6 +23,8 @@ import { useAuth } from '@/stores/auth'
 export function UserMenu() {
   const user = useAuth((s) => s.user)
   const logout = useLogout()
+  // In a platform admin's support view, logging out ends the view instead.
+  const stopViewing = useStopSupportView()
   const { isMobile } = useSidebar()
   // next-themes: a context (ThemeProvider in AppProviders) that stores the choice
   // in localStorage and puts the `dark` class on <html>.
@@ -71,10 +74,17 @@ export function UserMenu() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => logout.mutate()} disabled={logout.isPending}>
-              <LogOutIcon />
-              Log out
-            </DropdownMenuItem>
+            {user.impersonated_by ? (
+              <DropdownMenuItem onSelect={() => stopViewing.mutate()} disabled={stopViewing.isPending}>
+                <EyeOffIcon />
+                Stop viewing
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onSelect={() => logout.mutate()} disabled={logout.isPending}>
+                <LogOutIcon />
+                Log out
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

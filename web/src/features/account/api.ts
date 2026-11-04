@@ -13,7 +13,9 @@ export const devicesQuery = queryOptions({
 })
 
 export function useDevices() {
-  return useQuery(devicesQuery)
+  // Not in a platform admin's support view: the API hides the user's devices (and IPs) there.
+  const supportView = useAuth((s) => s.user?.impersonated_by != null)
+  return useQuery({ ...devicesQuery, enabled: !supportView })
 }
 
 /** Name and email changes answer with the user: store it, so the sidebar and banner update. */

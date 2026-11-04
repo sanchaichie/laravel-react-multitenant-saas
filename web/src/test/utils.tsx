@@ -46,6 +46,8 @@ export const ada: User = {
   email_verified: true,
   pending_email: null,
   two_factor_enabled: false,
+  is_platform_admin: false,
+  impersonated_by: null,
   current_organization: acme,
   created_at: '2026-10-01T12:00:00.000000Z',
 }

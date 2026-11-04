@@ -10,6 +10,7 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     id,
     title: `Task ${id}`,
     description: null,
+    content_hidden: false,
     status: 'todo',
     priority: 'medium',
     due_date: null,

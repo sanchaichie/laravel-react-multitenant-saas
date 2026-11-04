@@ -13,6 +13,13 @@ export function formatDateTime(iso: string): string {
   return `${dateTimeFormatter.format(new Date(iso))} UTC`
 }
 
+const timeFormatter = new Intl.DateTimeFormat('en-US', { timeStyle: 'short', timeZone: 'UTC' })
+
+/** An API timestamp as a time of day in UTC, e.g. "2:30 PM UTC". */
+export function formatTime(iso: string): string {
+  return `${timeFormatter.format(new Date(iso))} UTC`
+}
+
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 const smallUsdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 })
 

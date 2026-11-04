@@ -100,8 +100,13 @@ export async function apiRequest(
   }
 
   // Only if the token is still the one we sent: a newer login must not be undone.
+  // A support view's token (expired, or ended on the server) goes back to the admin's.
   if (endSessionOn401 && response.status === 401 && token !== null && useAuth.getState().token === token) {
-    useAuth.getState().clearSession()
+    if (useAuth.getState().adminToken !== null) {
+      void returnToAdmin()
+    } else {
+      useAuth.getState().clearSession()
+    }
   }
 
   if (!response.ok) {
@@ -113,6 +118,40 @@ export async function apiRequest(
   }
 
   return response
+}
+
+let returning: Promise<void> | null = null
+
+/**
+ * A platform admin's support view ended without Stop (it expired, or the server
+ * ended it): put the admin's own token back, with their user, and say so
+ * (supportViewEnded; AppLayout goes back to the user's admin page). Once at a time,
+ * however many requests got the 401. Resolves when done (bootstrapSession waits).
+ */
+export function returnToAdmin(): Promise<void> {
+  returning ??= (async () => {
+    const { adminToken, user } = useAuth.getState()
+    // Already back (an earlier call finished): nothing to do.
+    if (adminToken === null) {
+      return
+    }
+    try {
+      const { data } = await apiFetch<{ data: User }>('/api/me', { token: adminToken, endSessionOn401: false })
+      useAuth.getState().endSupportView(data, user ? { userId: user.id, expired: true } : undefined)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        // The admin's own session is gone too.
+        useAuth.getState().clearSession()
+      } else {
+        // The API is down: back to the admin's token; RequireAuth offers to retry loading them.
+        useAuth.getState().endSupportView(null, user ? { userId: user.id, expired: true } : undefined)
+      }
+    } finally {
+      returning = null
+    }
+  })()
+
+  return returning
 }
 
 let catchingUp: Promise<void> | null = null

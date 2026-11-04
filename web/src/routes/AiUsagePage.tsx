@@ -2,23 +2,22 @@ import { type ReactNode, useId, useState } from 'react'
 import { PencilIcon, SparklesIcon } from 'lucide-react'
 import { Navigate, useSearchParams } from 'react-router'
 import { ErrorState } from '@/components/ErrorState'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAiUsage } from '@/features/aiUsage/api'
+import { BudgetCard } from '@/features/aiUsage/BudgetCard'
 import { BudgetDialog } from '@/features/aiUsage/BudgetDialog'
 import { featureLabel, parseMonth } from '@/features/aiUsage/labels'
 import { useCan } from '@/hooks/useCan'
 import { ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/apiErrors'
-import { formatDay, formatLastDay, formatMonth, formatUsd } from '@/lib/format'
+import { formatDay, formatMonth, formatUsd } from '@/lib/format'
 import { useCurrentOrganization } from '@/stores/auth'
-import type { AiBudget, AiUsageReport, AiUsageRow } from '@/types/api'
+import type { AiUsageReport, AiUsageRow } from '@/types/api'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
 const formatNumber = (value: number) => numberFormatter.format(value)
@@ -138,44 +137,6 @@ function MonthPicker({ value, onChange }: { value: string; onChange: (month: str
           No max from the browser's clock: the API refuses a future month (422). */}
       <Input id={id} type="month" className="w-44" value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
-  )
-}
-
-// editButton: passed in like a slot, so the page keeps the dialog's state.
-function BudgetCard({ budget, editButton }: { budget: AiBudget; editButton: ReactNode }) {
-  // Derived during render (computed in Vue): nothing to keep in sync.
-  const off = budget.limit_usd === 0
-  const usedUp = !off && budget.remaining_usd <= 0
-  const percent = budget.limit_usd > 0 ? Math.min(100, (budget.spent_usd / budget.limit_usd) * 100) : 100
-  const label = off
-    ? 'AI is off for this organization'
-    : `${formatUsd(budget.spent_usd)} of ${formatUsd(budget.limit_usd)} spent this month`
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2 className="flex items-center gap-2">
-            Monthly budget
-            <Badge variant="secondary">{budget.is_default ? `${budget.plan} plan` : 'Custom'}</Badge>
-          </h2>
-        </CardTitle>
-        <CardDescription>
-          {off
-            ? 'The budget is $0: nobody can start AI work until it is raised.'
-            : usedUp
-              ? 'Used up: AI work is paused until the 1st (UTC), or until the budget is raised.'
-              : `${formatUsd(budget.remaining_usd)} left. Resets on the 1st (UTC).`}
-          {budget.credits_usd > 0 &&
-            ` Includes ${formatUsd(budget.credits_usd)} of AI credits, through ${formatLastDay(budget.credits_expire_at)}.`}
-        </CardDescription>
-        {editButton && <CardAction>{editButton}</CardAction>}
-      </CardHeader>
-      <CardContent className="grid gap-2">
-        <p className="text-sm font-medium">{label}</p>
-        <Progress value={percent} aria-label={label} className="h-2" />
-      </CardContent>
-    </Card>
   )
 }
 

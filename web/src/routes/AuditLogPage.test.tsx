@@ -26,6 +26,7 @@ function entry(overrides: Partial<AuditLog> = {}): AuditLog {
     action: 'task.created',
     action_label: 'Created a task',
     actor: { id: ada.id, name: ada.name },
+    by_platform_admin: false,
     subject: { type: 'task', id: 1, label: 'Write docs' },
     changes: {},
     metadata: {},
@@ -172,6 +173,29 @@ describe('AuditLogPage', () => {
     await user.click(within(credits!).getByRole('button', { name: 'Details' }))
     expect(within(credits!).getByText('$10 of AI credits')).toBeInTheDocument()
     expect(within(credits!).getByText('$10.00')).toBeInTheDocument()
+  })
+
+  it('names "Platform admin" for a change support made, never who', async () => {
+    logIn()
+    api({
+      'GET /api/audit-logs': () =>
+        jsonResponse(
+          page([
+            entry({
+              action: 'member.role_changed',
+              action_label: "Changed a member's role",
+              actor: null,
+              by_platform_admin: true,
+              subject: { type: 'member', id: 7, label: 'Mia' },
+              changes: { role: { old: { id: 3, name: 'Member' }, new: { id: 1, name: 'Owner' } } },
+            }),
+          ]),
+        ),
+    })
+    renderApp('/audit-log')
+
+    const [roleChange] = within(await screen.findByRole('list', { name: 'Audit log entries' })).getAllByRole('listitem')
+    expect(roleChange).toHaveTextContent("Platform admin changed a member's role: Mia")
   })
 
   it('keeps filters in the URL and sends them to the API', async () => {

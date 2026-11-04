@@ -9,11 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { errorMessage } from '@/lib/apiErrors'
 import { formatDateTime } from '@/lib/format'
 import type { Device } from '@/types/api'
+import { useAuth } from '@/stores/auth'
 import { useDevices, useRevokeDevice } from './api'
 
 export function DevicesCard() {
   const devices = useDevices()
   const revoke = useRevokeDevice()
+  const supportView = useAuth((s) => s.user?.impersonated_by != null)
 
   function onRevoke(device: Device) {
     revoke.mutate(device, {
@@ -33,7 +35,9 @@ export function DevicesCard() {
         <CardDescription>Where your account is logged in. Sign out any you don't recognize.</CardDescription>
       </CardHeader>
       <CardContent>
-        {devices.isPending ? (
+        {supportView ? (
+          <p className="text-sm text-muted-foreground">Hidden in the support view.</p>
+        ) : devices.isPending ? (
           <div className="grid gap-2" aria-label="Loading devices">
             <Skeleton className="h-9 w-full" />
             <Skeleton className="h-9 w-full" />

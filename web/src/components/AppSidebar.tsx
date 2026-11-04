@@ -1,5 +1,15 @@
 import type { ComponentType } from 'react'
-import { CreditCardIcon, LayoutDashboardIcon, ListTodoIcon, ScrollTextIcon, ShieldIcon, SparklesIcon, UsersIcon } from 'lucide-react'
+import {
+  Building2Icon,
+  CreditCardIcon,
+  LayoutDashboardIcon,
+  ListTodoIcon,
+  ScrollTextIcon,
+  ShieldIcon,
+  SparklesIcon,
+  UserSearchIcon,
+  UsersIcon,
+} from 'lucide-react'
 import { NavLink, useMatch } from 'react-router'
 import {
   Sidebar,
@@ -17,7 +27,7 @@ import {
 } from '@/components/ui/sidebar'
 import { UserMenu } from '@/components/UserMenu'
 import { OrganizationSwitcher } from '@/features/organizations/OrganizationSwitcher'
-import { useCurrentOrganization } from '@/stores/auth'
+import { useAuth, useCurrentOrganization } from '@/stores/auth'
 import type { Permission } from '@/types/api'
 
 interface NavItem {
@@ -39,11 +49,20 @@ const navigation: NavItem[] = [
   { to: '/billing', label: 'Billing', icon: CreditCardIcon, permission: 'billing.manage' },
 ]
 
+// For people who run the app (user.is_platform_admin), whatever the current organization.
+const adminNavigation: NavItem[] = [
+  { to: '/admin/users', label: 'Users', icon: UserSearchIcon },
+  { to: '/admin/organizations', label: 'Organizations', icon: Building2Icon },
+  { to: '/admin/audit-log', label: 'Platform log', icon: ScrollTextIcon },
+]
+
 export function AppSidebar() {
   // Filtered during render from the current organization's permissions (a computed
   // feeding v-for): nothing stored, so switching organization updates it by itself.
   const permissions = useCurrentOrganization()?.permissions ?? []
   const items = navigation.filter((item) => !item.permission || permissions.includes(item.permission))
+  // A whole group from one flag, derived during render (a v-if on a computed).
+  const isPlatformAdmin = useAuth((s) => s.user?.is_platform_admin === true)
 
   return (
     <Sidebar collapsible="icon">
@@ -61,6 +80,18 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {isPlatformAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Platform admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminNavigation.map((item) => (
+                  <NavItemLink key={item.to} item={item} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <UserMenu />

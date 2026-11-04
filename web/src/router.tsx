@@ -71,6 +71,13 @@ export const routes: RouteObject[] = [
               { path: 'billing', element: <BillingPage /> },
               { path: 'billing/invoices', element: <InvoicesPage /> },
               { path: 'account', element: <AccountPage /> },
+              // Platform admin pages, loaded only when one is opened (`lazy`: a separate
+              // chunk, as Nuxt does for every page), so other people never download them.
+              { path: 'admin/users', lazy: () => import('@/routes/admin/AdminUsersPage').then((m) => ({ Component: m.AdminUsersPage })) },
+              { path: 'admin/users/:id', lazy: () => import('@/routes/admin/AdminUserPage').then((m) => ({ Component: m.AdminUserPage })) },
+              { path: 'admin/organizations', lazy: () => import('@/routes/admin/AdminOrganizationsPage').then((m) => ({ Component: m.AdminOrganizationsPage })) },
+              { path: 'admin/organizations/:id', lazy: () => import('@/routes/admin/AdminOrganizationPage').then((m) => ({ Component: m.AdminOrganizationPage })) },
+              { path: 'admin/audit-log', lazy: () => import('@/routes/admin/AdminAuditLogPage').then((m) => ({ Component: m.AdminAuditLogPage })) },
             ],
           },
           // Logged in, but in the card layout of the auth pages.
