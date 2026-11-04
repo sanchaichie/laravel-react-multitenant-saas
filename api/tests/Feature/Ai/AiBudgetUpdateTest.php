@@ -8,6 +8,8 @@ use Laravel\Sanctum\Sanctum;
 beforeEach(function () {
     config(['ai.monthly_budget_usd' => 5.0]);
     [$this->owner, $this->acme] = userInOrganization(name: 'Acme');
+    // On Pro ($50), so budgets above Free's $5 are allowed (BillingBudgetTest covers Free).
+    subscribe($this->acme);
     Sanctum::actingAs($this->owner);
 });
 
@@ -27,7 +29,7 @@ it('sets the budget, goes back to the default, and turns AI off with 0', functio
 
     $this->putJson('/api/ai-budget', ['monthly_budget_usd' => null])
         ->assertOk()
-        ->assertJsonPath('data.limit_usd', 5)
+        ->assertJsonPath('data.limit_usd', 50)
         ->assertJsonPath('data.is_default', true)
         ->assertJsonPath('data.own_limit_usd', null);
     expect($this->acme->fresh()->ai_monthly_budget_usd)->toBeNull();
@@ -53,17 +55,17 @@ it('validates the budget', function (array $body, string $message) {
 })->with([
     'missing' => [[], 'The monthly budget usd field must be present.'],
     'negative' => [['monthly_budget_usd' => -1], 'The monthly budget usd field must be at least 0.'],
-    'too high' => [['monthly_budget_usd' => 10000.01], 'The budget can be at most $10,000 a month.'],
+    'above the plan' => [['monthly_budget_usd' => 50.01], 'The Pro plan allows at most $50.00 a month. Buy AI credits for more.'],
     'cents only' => [['monthly_budget_usd' => '1.005'], 'Use at most 2 decimals (cents).'],
     'not a number' => [['monthly_budget_usd' => 'lots'], 'The monthly budget usd field must be a number.'],
 ]);
 
 it('refuses roles without ai_budget.manage, Admin included', function () {
     Sanctum::actingAs(addMember($this->acme, DefaultRole::Admin));
-    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 100])->assertForbidden();
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 10])->assertForbidden();
 
     Sanctum::actingAs(addMember($this->acme, createRole($this->acme, 'Viewer', [Permission::AiUsageView])));
-    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 100])->assertForbidden();
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 10])->assertForbidden();
 
     expect($this->acme->fresh()->ai_monthly_budget_usd)->toBeNull()
         ->and(auditEntries($this->acme, AuditAction::AiBudgetUpdated))->toHaveCount(0);
@@ -72,7 +74,7 @@ it('refuses roles without ai_budget.manage, Admin included', function () {
 it('needs a verified email', function () {
     $this->owner->forceFill(['email_verified_at' => null])->save();
 
-    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 100])
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 10])
         ->assertForbidden()
         ->assertJsonPath('code', 'email_unverified');
 });

@@ -90,6 +90,40 @@ it('is refused while they are the last owner of an organization with other membe
         ->and($organization->members()->count())->toBe(2);
 });
 
+it('is refused while they are the only member of an organization Stripe still bills', function () {
+    [$user, $solo] = userInOrganization(name: 'Solo');
+    subscribe($solo);
+    $acme = Organization::factory()->withMember($user, DefaultRole::Owner)->create(['name' => 'Acme']);
+    addMember($acme);
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson('/api/account', ['password' => 'password'])
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.account.0', "You're the last owner of Acme, which has other members. Make one of them Owner first. Solo still has a paid plan. Cancel it in Billing first.");
+
+    expect(User::find($user->id))->not->toBeNull()
+        ->and(Organization::find($solo->id))->not->toBeNull();
+});
+
+it('deletes an organization whose plan was canceled at the period end, since it won\'t renew', function () {
+    [$user, $solo] = userInOrganization(name: 'Solo');
+    subscribe($solo, ['ends_at' => now()->addWeek()]);
+
+    $this->actingAs($user, 'sanctum')->deleteJson('/api/account', ['password' => 'password'])->assertNoContent();
+
+    expect(Organization::find($solo->id))->toBeNull();
+});
+
+it('deletes an organization whose plan was canceled and has ended', function () {
+    [$user, $solo] = userInOrganization(name: 'Solo');
+    subscribe($solo, ['stripe_status' => 'canceled', 'ends_at' => now()->subDay()]);
+
+    $this->actingAs($user, 'sanctum')->deleteJson('/api/account', ['password' => 'password'])->assertNoContent();
+
+    expect(Organization::find($solo->id))->toBeNull()
+        ->and(DB::table('subscriptions')->where('organization_id', $solo->id)->exists())->toBeFalse();
+});
+
 it('lists every blocking organization and changes nothing anywhere', function () {
     [$user, $acme] = userInOrganization(name: 'Acme');
     addMember($acme);

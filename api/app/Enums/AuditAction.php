@@ -24,6 +24,8 @@ enum AuditAction: string
     case SummaryApproved = 'summary.approved';
     case SummaryRejected = 'summary.rejected';
     case AiBudgetUpdated = 'ai_budget.updated';
+    case PlanChanged = 'billing.plan_changed';
+    case AiCreditsPurchased = 'billing.credits_purchased';
 
     public function label(): string
     {
@@ -44,6 +46,8 @@ enum AuditAction: string
             self::SummaryApproved => 'Approved a task summary',
             self::SummaryRejected => 'Rejected a task summary',
             self::AiBudgetUpdated => 'Changed the AI budget',
+            self::PlanChanged => 'Changed the plan',
+            self::AiCreditsPurchased => 'Bought AI credits',
         };
     }
 
@@ -56,6 +60,7 @@ enum AuditAction: string
             self::RoleCreated, self::RoleUpdated, self::RoleDeleted => 'Roles',
             self::TaskCreated, self::TaskUpdated, self::TaskDeleted,
             self::SummaryRequested, self::SummaryApproved, self::SummaryRejected => 'Tasks',
+            self::PlanChanged, self::AiCreditsPurchased => 'Billing',
         };
     }
 }

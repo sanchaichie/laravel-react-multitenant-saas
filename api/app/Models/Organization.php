@@ -6,24 +6,34 @@ use App\Enums\DefaultRole;
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Cashier\Billable;
 use LogicException;
 
 /**
  * @property string|null $ai_monthly_budget_usd Own monthly AI budget (decimal string); null uses the default (AiBudget).
+ * @property string|null $stripe_id Set once the organization is a Stripe customer (Cashier).
  * @property-read Membership|null $membership Set when loaded through User::organizations().
  */
 #[Fillable(['name'])]
+#[Hidden(['stripe_id', 'pm_type', 'pm_last_four', 'trial_ends_at'])]
 class Organization extends Model
 {
+    // The organization, not the user, is the Stripe customer (Cashier::useCustomerModel).
+    // Its subscriptions aren't tenant-scoped: reach them only through subscriptions() or
+    // App\Billing\Plans, never Subscription::query().
+    use Billable;
+
     /** @use HasFactory<OrganizationFactory> */
     use HasFactory;
 
     /**
-     * Not fillable: only UpdateAiBudget sets ai_monthly_budget_usd.
+     * Not fillable: only UpdateAiBudget sets ai_monthly_budget_usd, and only Cashier
+     * (through the webhook) the Stripe columns.
      *
      * @return array<string, string>
      */

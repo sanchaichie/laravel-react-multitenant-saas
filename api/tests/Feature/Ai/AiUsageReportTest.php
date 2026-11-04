@@ -40,6 +40,9 @@ it('reports this month by feature, person and day, with the budget', function ()
             'is_default' => true,
             'own_limit_usd' => null,
             'default_limit_usd' => 5.0,
+            'plan' => 'Free',
+            'credits_usd' => 0.0,
+            'credits_expire_at' => '2026-11-01T00:00:00Z',
             'spent_usd' => 0.875,
             'remaining_usd' => 4.125,
         ])

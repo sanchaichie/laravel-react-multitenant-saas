@@ -26,15 +26,22 @@ beforeEach(function () {
 });
 
 it('uses the default budget, the organization\'s own, or none when it is 0', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-14 12:00:00', 'UTC'));
+
     expect($this->budget->summary($this->acme))->toBe([
         'limit_usd' => 5.0,
         'is_default' => true,
         'own_limit_usd' => null,
         'default_limit_usd' => 5.0,
+        'plan' => 'Free',
+        'credits_usd' => 0.0,
+        'credits_expire_at' => '2026-11-01T00:00:00Z',
         'spent_usd' => 0.0,
         'remaining_usd' => 5.0,
     ]);
 
+    // An own budget above Free's needs Pro (the plan is the ceiling: BillingBudgetTest).
+    subscribe($this->acme);
     $this->acme->forceFill(['ai_monthly_budget_usd' => '12.50'])->save();
     expect($this->budget->summary($this->acme))
         ->limit_usd->toBe(12.5)

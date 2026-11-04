@@ -1,11 +1,13 @@
 <?php
 
+use App\Billing\Invoice;
 use App\Enums\AuditAction;
 use App\Enums\ChatMessageRole;
 use App\Enums\ChatMessageStatus;
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
 use App\Enums\TaskSummaryStatus;
+use App\Models\AiCreditPurchase;
 use App\Models\AiUsage;
 use App\Models\AuditLog;
 use App\Models\Organization;
@@ -16,10 +18,13 @@ use App\Models\TaskChatMessage;
 use App\Models\TaskSummary;
 use App\Models\User;
 use App\Support\CurrentOrganization;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Laravel\Cashier\Subscription;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /*
@@ -227,4 +232,152 @@ function createChatMessage(Organization $organization, Task $task, User $user, C
 
         return $message;
     });
+}
+
+/**
+ * Subscribe the organization to Pro directly (as the webhook would), making it a
+ * Stripe customer first if needed.
+ *
+ * @param  array<string, mixed>  $attributes  e.g. ['stripe_status' => 'past_due']
+ */
+function subscribe(Organization $organization, array $attributes = []): Subscription
+{
+    if (! $organization->hasStripeId()) {
+        $organization->forceFill(['stripe_id' => 'cus_'.Str::random(14)])->save();
+    }
+
+    $subscription = $organization->subscriptions()->create(array_merge([
+        'type' => 'default',
+        'stripe_id' => 'sub_'.Str::random(14),
+        'stripe_status' => 'active',
+        'stripe_price' => config('billing.plans.pro.price'),
+        'quantity' => 1,
+    ], $attributes));
+    $organization->unsetRelation('subscriptions');
+
+    return $subscription;
+}
+
+/**
+ * Credits the organization bought (as GrantAiCredits would write them).
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function buyCredits(Organization $organization, float $usd = 10, array $attributes = []): AiCreditPurchase
+{
+    return inOrganization($organization, function () use ($usd, $attributes) {
+        $purchase = new AiCreditPurchase;
+        $purchase->forceFill(array_merge([
+            'pack' => 'credits_10',
+            'amount_usd' => $usd,
+            'stripe_checkout_session_id' => 'cs_'.Str::random(14),
+        ], $attributes))->save();
+
+        return $purchase;
+    });
+}
+
+/**
+ * Post a Stripe event to the webhook, signed like Stripe does (t=..., v1=HMAC-SHA256
+ * of "t.payload" with the webhook secret). Pass $secret to sign with a wrong one.
+ *
+ * @param  array<string, mixed>  $object  the event's data.object
+ */
+function stripeWebhook(string $type, array $object, ?string $secret = null): TestResponse
+{
+    $payload = json_encode([
+        'id' => 'evt_'.Str::random(14),
+        'object' => 'event',
+        'type' => $type,
+        'data' => ['object' => $object],
+    ]);
+    $timestamp = time();
+    $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret ?? (string) config('cashier.webhook.secret'));
+
+    // From Stripe, so nobody is logged in: set the test's actingAs user aside for it.
+    $user = auth()->guard()->user();
+    $guard = config('auth.defaults.guard');
+    auth()->forgetGuards();
+    config(['auth.defaults.guard' => 'web']);
+
+    try {
+        return test()->call('POST', '/api/stripe/webhook', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
+        ], content: $payload);
+    } finally {
+        config(['auth.defaults.guard' => $guard]);
+
+        if ($user instanceof User) {
+            Sanctum::actingAs($user);
+        }
+    }
+}
+
+/**
+ * A Stripe subscription object as webhooks send it (one Pro item).
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array<string, mixed>
+ */
+function stripeSubscription(Organization $organization, array $attributes = []): array
+{
+    return array_merge([
+        'id' => 'sub_test',
+        'object' => 'subscription',
+        'customer' => $organization->stripe_id,
+        'status' => 'active',
+        'cancel_at_period_end' => false,
+        'cancel_at' => null,
+        'canceled_at' => null,
+        'trial_end' => null,
+        'metadata' => ['type' => 'default'],
+        'items' => ['data' => [[
+            'id' => 'si_test',
+            'quantity' => 1,
+            'price' => ['id' => config('billing.plans.pro.price'), 'product' => 'prod_test'],
+        ]]],
+    ], $attributes);
+}
+
+/**
+ * A Stripe Checkout Session for a credit pack as webhooks send it: paid, one-time,
+ * started in the organization by $user.
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array<string, mixed>
+ */
+function stripeCreditsSession(Organization $organization, ?User $user = null, array $attributes = []): array
+{
+    return array_merge([
+        'id' => 'cs_test_'.Str::random(10),
+        'object' => 'checkout.session',
+        'customer' => $organization->stripe_id,
+        'client_reference_id' => (string) $organization->id,
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'status' => 'complete',
+        'amount_total' => 1000,
+        'metadata' => ['pack' => 'credits_10', 'user_id' => $user === null ? null : (string) $user->id],
+    ], $attributes);
+}
+
+/**
+ * An invoice for FakeBillingGateway::setInvoices(): a paid $19 Pro invoice unless overridden.
+ *
+ * @param  array<string, mixed>  $attributes  constructor arguments of App\Billing\Invoice
+ */
+function invoice(string $id, array $attributes = []): Invoice
+{
+    return new Invoice(...array_merge([
+        'id' => $id,
+        'number' => 'ACME-0001',
+        'status' => 'paid',
+        'total' => 1900,
+        'currency' => 'usd',
+        'createdAt' => CarbonImmutable::parse('2026-10-01 12:00:00', 'UTC'),
+        'description' => 'Pro',
+        'hostedUrl' => 'https://invoice.stripe.com/i/acct_1/test_1',
+        'pdfUrl' => 'https://pay.stripe.com/invoice/acct_1/test_1/pdf',
+    ], $attributes));
 }

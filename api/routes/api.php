@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\InvitationController;
@@ -19,6 +20,8 @@ use App\Http\Controllers\Api\TaskSummaryController;
 use App\Http\Controllers\Api\TaskWritingHelpController;
 use App\Http\Controllers\Api\TwoFactorChallengeController;
 use App\Http\Controllers\Api\TwoFactorController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\VerifyStripeWebhook;
 use Illuminate\Support\Facades\Route;
 
 // Separate counters, so failed logins don't use up registrations. 'login' is per
@@ -44,6 +47,9 @@ Route::post('/account/two-factor/revert/{id}/{at}', [TwoFactorController::class,
 Route::post('/account/email/revert/{id}/{old}/{new}', [AccountController::class, 'revertEmail'])
     ->where(['id' => '[0-9]{1,18}', 'old' => '[0-9a-f]{40}', 'new' => '[0-9a-f]{40}'])
     ->middleware(['signed:relative', 'throttle:6,1,email-revert'])->name('account.email.revert');
+
+// From Stripe, not the app: no user, authenticated by the payload's signature.
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->middleware(['throttle:120,1,stripe-webhook', VerifyStripeWebhook::class]);
 
 // Ids up to 18 digits: always fit bigint and the int parameter (longer is a 404, not a 500).
 // Throttle prefixes give each group its own per-user counter.
@@ -144,5 +150,15 @@ Route::middleware('auth:sanctum')->group(function () {
         // AI usage of one month, and the monthly AI budget (raising it spends money: 'verified').
         Route::get('/ai-usage', [AiUsageController::class, 'index']);
         Route::put('/ai-budget', [AiUsageController::class, 'updateBudget'])->middleware(['verified', 'throttle:20,1,ai-budget']);
+
+        // Billing (billing.manage). The overview reads our own tables; the rest call Stripe,
+        // limited per user and per organization ('stripe'). Paying spends money: 'verified'.
+        Route::get('/billing', [BillingController::class, 'show']);
+        Route::middleware('throttle:stripe')->group(function () {
+            Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('verified');
+            Route::post('/billing/credits/checkout', [BillingController::class, 'creditsCheckout'])->middleware('verified');
+            Route::post('/billing/portal', [BillingController::class, 'portal'])->middleware('verified');
+            Route::get('/billing/invoices', [BillingController::class, 'invoices']);
+        });
     });
 });

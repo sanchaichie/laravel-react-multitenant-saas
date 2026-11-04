@@ -18,6 +18,7 @@ enum Permission: string
     case AiUse = 'ai.use';
     case AiUsageView = 'ai_usage.view';
     case AiBudgetManage = 'ai_budget.manage';
+    case BillingManage = 'billing.manage';
 
     public function label(): string
     {
@@ -31,6 +32,7 @@ enum Permission: string
             self::AiUse => 'Ask for AI summaries and help',
             self::AiUsageView => 'View AI usage and the budget',
             self::AiBudgetManage => 'Change the monthly AI budget',
+            self::BillingManage => 'Manage the plan, payment details and invoices',
         };
     }
 
@@ -40,7 +42,7 @@ enum Permission: string
             self::TasksCreate, self::TasksManage => 'Tasks',
             self::MembersInvite, self::MembersManage => 'Members',
             self::RolesManage => 'Roles',
-            self::AuditLogView => 'Organization',
+            self::AuditLogView, self::BillingManage => 'Organization',
             self::AiUse, self::AiUsageView, self::AiBudgetManage => 'AI',
         };
     }

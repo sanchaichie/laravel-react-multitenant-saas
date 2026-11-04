@@ -4,6 +4,7 @@ namespace App\Actions\Account;
 
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
 use App\Actions\Organizations\RemoveMember;
+use App\Billing\Plans;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
@@ -16,11 +17,16 @@ class DeleteAccount
 {
     use EnsuresAnOwnerRemains;
 
-    public function __construct(private readonly RemoveMember $removeMember) {}
+    public function __construct(
+        private readonly RemoveMember $removeMember,
+        private readonly Plans $plans,
+    ) {}
 
     /**
      * Delete the user (the request checked their password). Refused while they're the
-     * last owner of an organization that has other members. Organizations where they're
+     * last owner of an organization that has other members, or the only member of one
+     * Stripe will charge again (deleting it wouldn't stop the charges; a plan canceled
+     * at the period end doesn't count). Organizations where they're
      * the only member are deleted with their data; they leave the others (audited
      * there), then the user and their tokens are deleted.
      *
@@ -32,6 +38,7 @@ class DeleteAccount
             $toDelete = collect();
             $toLeave = collect();
             $blocking = collect();
+            $subscribed = collect();
 
             foreach ($user->organizations()->orderBy('organizations.id')->get() as $organization) {
                 $memberships = $this->lockedMemberships($organization, $user);
@@ -49,12 +56,15 @@ class DeleteAccount
                 match (true) {
                     ! $own->role->is_owner || $anotherOwner => $toLeave->push($organization),
                     $memberships->count() > 1 => $blocking->push($organization),
+                    // Read after the organization lock, which the subscription webhooks take too.
+                    // A plan canceled at the period end won't be charged again: no reason to wait.
+                    $this->plans->renewingSubscriptions($organization)->isNotEmpty() => $subscribed->push($organization),
                     default => $toDelete->push($organization),
                 };
             }
 
-            if ($blocking->isNotEmpty()) {
-                throw ValidationException::withMessages(['account' => self::blockedMessage($blocking)]);
+            if ($blocking->isNotEmpty() || $subscribed->isNotEmpty()) {
+                throw ValidationException::withMessages(['account' => self::blockedMessage($blocking, $subscribed)]);
             }
 
             foreach ($toLeave as $organization) {
@@ -82,15 +92,29 @@ class DeleteAccount
     }
 
     /**
+     * Why deletion is refused, naming only the reasons that apply.
+     *
      * @param  Collection<int, Organization>  $blocking  last owner, with other members
+     * @param  Collection<int, Organization>  $subscribed  only member, but Stripe still bills it
      */
-    private static function blockedMessage(Collection $blocking): string
+    private static function blockedMessage(Collection $blocking, Collection $subscribed): string
     {
-        $names = $blocking->pluck('name')->join(', ', ' and ');
+        $names = fn (Collection $organizations) => $organizations->pluck('name')->join(', ', ' and ');
+        $reasons = [];
 
-        return $blocking->count() === 1
-            ? "You're the last owner of {$names}, which has other members. Make one of them Owner first."
-            : "You're the last owner of {$names}, which have other members. Make one of them Owner in each first.";
+        if ($blocking->isNotEmpty()) {
+            $reasons[] = $blocking->count() === 1
+                ? "You're the last owner of {$names($blocking)}, which has other members. Make one of them Owner first."
+                : "You're the last owner of {$names($blocking)}, which have other members. Make one of them Owner in each first.";
+        }
+
+        if ($subscribed->isNotEmpty()) {
+            $reasons[] = $subscribed->count() === 1
+                ? "{$names($subscribed)} still has a paid plan. Cancel it in Billing first."
+                : "{$names($subscribed)} still have paid plans. Cancel them in Billing first.";
+        }
+
+        return implode(' ', $reasons);
     }
 
     /**

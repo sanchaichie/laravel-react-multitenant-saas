@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\Ai;
 
+use App\Ai\AiBudget;
+use App\Billing\Plans;
 use App\Models\AiUsage;
+use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateAiBudgetRequest extends FormRequest
@@ -19,8 +22,9 @@ class UpdateAiBudgetRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Null goes back to the default budget; 0 turns AI off.
-            'monthly_budget_usd' => ['present', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:10000'],
+            // Null goes back to the plan's budget; 0 turns AI off. The plan's budget is the
+            // most an organization can give itself (more needs a better plan, or credits).
+            'monthly_budget_usd' => ['present', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:'.$this->planLimit()],
         ];
     }
 
@@ -28,8 +32,24 @@ class UpdateAiBudgetRequest extends FormRequest
     {
         return [
             'monthly_budget_usd.decimal' => 'Use at most 2 decimals (cents).',
-            'monthly_budget_usd.max' => 'The budget can be at most $10,000 a month.',
+            'monthly_budget_usd.max' => $this->maxMessage(),
         ];
+    }
+
+    private function planLimit(): float
+    {
+        return app(AiBudget::class)->planLimit(app(CurrentOrganization::class)->get());
+    }
+
+    private function maxMessage(): string
+    {
+        $plans = app(Plans::class);
+        $plan = $plans->for(app(CurrentOrganization::class)->get());
+        $limit = '$'.number_format($plan->aiMonthlyBudgetUsd, 2);
+
+        return $plan->isPaid
+            ? "The {$plan->name} plan allows at most {$limit} a month. Buy AI credits for more."
+            : "The {$plan->name} plan allows at most {$limit} a month. Upgrade in Billing for more.";
     }
 
     /**

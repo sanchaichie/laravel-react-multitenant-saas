@@ -8,7 +8,13 @@ use App\Ai\Clients\BudgetedAiClient;
 use App\Ai\Clients\FakeAiClient;
 use App\Ai\Clients\RecordingAiClient;
 use App\Ai\Contracts\AiClient;
+use App\Billing\Contracts\BillingGateway;
+use App\Billing\FakeBillingGateway;
+use App\Billing\StripeBillingGateway;
+use App\Enums\Permission;
 use App\Jobs\OrganizationJob;
+use App\Models\Organization;
+use App\Policies\BillingPolicy;
 use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
@@ -17,9 +23,12 @@ use Illuminate\Http\Request;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\ConfigurationUrlParser;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use Laravel\Cashier\Cashier;
+use LogicException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -56,6 +65,21 @@ class AppServiceProvider extends ServiceProvider
                 : new FakeAiClient(config('ai.model'), config('ai.fake_stream_delay_ms')),
             default => throw new InvalidArgumentException('Unknown AI provider ['.config('ai.provider').'].'),
         });
+
+        // Payments, from config/billing.php. Tests bind their own fake (TestCase).
+        $this->app->bind(BillingGateway::class, fn (Application $app) => match (config('billing.provider')) {
+            'stripe' => $app->make(StripeBillingGateway::class),
+            'fake' => $app->bound(FakeBillingGateway::class) ? $app->make(FakeBillingGateway::class) : new FakeBillingGateway,
+            default => throw new InvalidArgumentException('Unknown billing provider ['.config('billing.provider').'].'),
+        });
+
+        // The organization is the Stripe customer. Cashier's own routes are off: ours is
+        // POST /api/stripe/webhook, which always checks the signature (VerifyStripeWebhook).
+        Cashier::useCustomerModel(Organization::class);
+        Cashier::ignoreRoutes();
+        // A failed renewal keeps the plan while Stripe retries the card; Stripe then
+        // cancels the subscription (Billing settings), which ends the plan.
+        Cashier::keepPastDueSubscriptionsActive();
     }
 
     /**
@@ -81,6 +105,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         self::guardDestructiveDatabaseCommands();
+
+        // The fake gateway never charges anyone, and with fake_complete_checkout it hands
+        // out Pro for free: only on a developer's machine and in tests, never on a server
+        // others can reach (production or a staging copy).
+        if (config('billing.provider') === 'fake' && ! $this->app->environment('local', 'testing')) {
+            throw new LogicException('BILLING_PROVIDER=fake is only allowed when APP_ENV is local or testing.');
+        }
+
+        // Billing has no model of its own: always the current organization's.
+        Gate::define('manageBilling', [BillingPolicy::class, 'manage']);
 
         // Per address and IP, and per address alone, so many IPs can't each take
         // their 6 guesses at one account.
@@ -137,6 +171,27 @@ class AppServiceProvider extends ServiceProvider
                 ->response(fn () => response()->json([
                     'message' => 'Too many AI requests for this organization. Try again in a minute.',
                 ], 429));
+        });
+
+        // Billing routes that call Stripe. Stripe's rate limit is for the whole account, so
+        // one busy organization mustn't use it up: per user, and per organization. Only
+        // people who may manage billing count toward the organization's limit: the throttle
+        // runs before the policy, so others' 403s could otherwise lock its owners out.
+        RateLimiter::for('stripe', function (Request $request) {
+            $organization = app(CurrentOrganization::class);
+            $limits = [
+                Limit::perMinute(20)->by('stripe:user:'.$request->user()?->id)->response(fn () => response()->json([
+                    'message' => 'Too many billing requests. Try again in a minute.',
+                ], 429)),
+            ];
+
+            if ($organization->id() !== null && $organization->can(Permission::BillingManage)) {
+                $limits[] = Limit::perMinute(60)->by('stripe:org:'.$organization->id())->response(fn () => response()->json([
+                    'message' => 'Too many billing requests for this organization. Try again in a minute.',
+                ], 429));
+            }
+
+            return $limits;
         });
 
         // {{ }} in Markdown mail escapes HTML but not Markdown: without this, a name

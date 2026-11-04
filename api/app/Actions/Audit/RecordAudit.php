@@ -30,6 +30,8 @@ class RecordAudit
      *                                           The caller must have checked the actor may act there.
      * @param  User|null  $actor  defaults to the logged-in user (none in jobs); pass it when
      *                            the user isn't logged in yet (registering)
+     * @param  bool  $withoutActor  nobody did it, even if someone is logged in (Stripe did:
+     *                              webhooks, and the fake billing provider's checkouts)
      */
     public function handle(
         AuditAction $action,
@@ -38,9 +40,10 @@ class RecordAudit
         array $metadata = [],
         ?Organization $organization = null,
         ?User $actor = null,
+        bool $withoutActor = false,
     ): AuditLog {
         $user = $this->auth->guard()->user();
-        $actor ??= $user instanceof User ? $user : null;
+        $actor ??= ! $withoutActor && $user instanceof User ? $user : null;
 
         $entry = (new AuditLog)->forceFill([
             'actor_id' => $actor?->id,
