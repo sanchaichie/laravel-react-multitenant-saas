@@ -104,17 +104,21 @@ it('keeps another account usable from the same IP', function () {
     $this->postJson('/api/login', ['email' => 'grace@example.com', 'password' => 'secret-password'])->assertOk();
 });
 
-it('names the token after the device, or "web"', function (?string $device, string $name) {
-    $this->postJson('/api/login', [
-        'email' => 'ada@example.com',
-        'password' => 'secret-password',
-        'device_name' => $device,
-    ])->assertOk();
+it('names the token after the device, or its browser, and keeps where it was issued', function (?string $device, string $name) {
+    $this->withHeaders(['User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'])
+        ->postJson('/api/login', [
+            'email' => 'ada@example.com',
+            'password' => 'secret-password',
+            'device_name' => $device,
+        ])->assertOk();
 
-    expect($this->user->tokens()->sole()->name)->toBe($name);
+    expect($this->user->tokens()->sole())
+        ->name->toBe($name)
+        ->ip_address->toBe('127.0.0.1')
+        ->user_agent->toStartWith('Mozilla/5.0 (Macintosh');
 })->with([
     'given' => ['Ada\'s phone', 'Ada\'s phone'],
-    'omitted' => [null, 'web'],
+    'omitted' => [null, 'Chrome on macOS'],
 ]);
 
 it('counts login attempts separately from registrations', function () {

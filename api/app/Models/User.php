@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPassword;
 use App\Notifications\VerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -18,6 +19,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property int|null $current_organization_id Only changed by SwitchOrganization / CreateOrganization.
  *                                             Not proof of access: read it through activeOrganization()
  *                                             or App\Support\CurrentOrganization, which check membership.
+ * @property string|null $pending_email A requested email change, until the new address confirms it (never fillable).
+ * @property string|null $previous_email The email before the last confirmed change, for its undo link (never fillable).
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -88,5 +91,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function sendEmailVerificationNotification(): void
     {
         $this->notify(new VerifyEmail);
+    }
+
+    /**
+     * The reset link points at the React app (App\Notifications\ResetPassword).
+     *
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPassword($token));
     }
 }

@@ -11,7 +11,7 @@ it('returns the logged-in user with their current organization and role', functi
         ->getJson('/api/me')
         ->assertOk()
         ->assertExactJsonStructure(['data' => [
-            'id', 'name', 'email', 'email_verified', 'created_at',
+            'id', 'name', 'email', 'email_verified', 'pending_email', 'created_at',
             'current_organization' => ['id', 'name', 'role', 'permissions', 'created_at'],
         ]])
         ->assertJsonPath('data.name', 'Ada Lovelace')

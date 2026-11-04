@@ -1,13 +1,16 @@
 <?php
 
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\TaskChatController;
@@ -21,6 +24,16 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1,register');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
+// Always the same answer (no account discovery); per IP, apart from logins. The
+// broker also allows one link per address a minute.
+Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:6,1,password-reset');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1,password-reset');
+
+// The undo link from the "email was changed" notice: no login, the owner may be locked out.
+Route::post('/account/email/revert/{id}/{old}/{new}', [AccountController::class, 'revertEmail'])
+    ->where(['id' => '[0-9]{1,18}', 'old' => '[0-9a-f]{40}', 'new' => '[0-9a-f]{40}'])
+    ->middleware(['signed:relative', 'throttle:6,1,email-revert'])->name('account.email.revert');
+
 // Ids up to 18 digits: always fit bigint and the int parameter (longer is a 404, not a 500).
 // Throttle prefixes give each group its own per-user counter.
 Route::middleware('auth:sanctum')->group(function () {
@@ -32,6 +45,18 @@ Route::middleware('auth:sanctum')->group(function () {
         ->where(['id' => '[0-9]{1,18}', 'hash' => '[0-9a-f]{40}'])
         ->middleware(['signed:relative', 'throttle:verify-email'])->name('verification.verify');
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])->middleware('throttle:verify-email');
+
+    // The user's own account, whatever the current organization.
+    Route::patch('/account', [AccountController::class, 'update'])->middleware('throttle:20,1,account');
+    Route::put('/account/email', [AccountController::class, 'updateEmail'])->middleware(['throttle:current-password', 'throttle:account-email']);
+    Route::post('/account/email/confirm/{id}/{hash}', [AccountController::class, 'confirmEmail'])
+        ->where(['id' => '[0-9]{1,18}', 'hash' => '[0-9a-f]{40}'])
+        ->middleware(['signed:relative', 'throttle:verify-email'])->name('account.email.confirm');
+    Route::delete('/account/email/pending', [AccountController::class, 'cancelEmailChange'])->middleware('throttle:20,1,account');
+    Route::put('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:current-password');
+    Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:current-password');
+    Route::get('/account/devices', [DeviceController::class, 'index']);
+    Route::delete('/account/devices/{device}', [DeviceController::class, 'destroy'])->where('device', '[0-9]{1,18}')->middleware('throttle:60,1,devices');
 
     // The user's own organizations, whatever the current one.
     Route::get('/organizations', [OrganizationController::class, 'index']);

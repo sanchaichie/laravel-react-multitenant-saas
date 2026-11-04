@@ -26,7 +26,7 @@ it('registers a user and returns a working token', function () {
     $user = User::sole();
     expect($user->name)->toBe('Ada Lovelace')
         ->and(Hash::check('secret-password', $user->password))->toBeTrue()
-        ->and($user->tokens()->sole()->name)->toBe('web');
+        ->and($user->tokens()->sole()->name)->toBe('Unknown device');
 
     $this->withToken($response->json('token'))
         ->getJson('/api/me')

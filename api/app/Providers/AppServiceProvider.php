@@ -99,6 +99,15 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(6)->by('verify-email:'.$request->user()?->id),
             Limit::perHour(10)->by('verify-email:hour:'.$request->user()?->id),
         ]);
+        // Every route that checks your current password (email, password, delete account)
+        // shares one counter, so a stolen token can't spread guesses across them.
+        RateLimiter::for('current-password', fn (Request $request) => [
+            Limit::perMinute(5)->by('current-password:'.$request->user()?->id),
+            Limit::perHour(20)->by('current-password:hour:'.$request->user()?->id),
+        ]);
+        // Changing your email mails the new address: per minute here; ChangeEmail also
+        // allows 10 actual changes a day.
+        RateLimiter::for('account-email', fn (Request $request) => Limit::perMinute(6)->by('account-email:'.$request->user()?->id));
         RateLimiter::for('invitations', function (Request $request) {
             $organizationId = app(CurrentOrganization::class)->id();
 
