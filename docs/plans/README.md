@@ -25,5 +25,5 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 13 | [Task chat](13-task-chat.md) | Done | 16 |
 | 14 | [Account basics](14-account-basics.md) | Done | 22 |
 | 15 | [Two-factor authentication](15-two-factor-authentication.md) | Done | 24 |
-| 16 | Stripe billing and invoices | Not planned yet | 18, 19, 20 |
+| 16 | [Stripe billing and invoices](16-stripe-billing-invoices.md) | Done | 18, 19, 20 |
 | 17 | Platform admin and view as user | Not planned yet | 25, 26, 27 |
