@@ -7,6 +7,8 @@
 #            for streaming) and `vite preview` on :5112, wait until both answer.
 #            Records where laravel.log ends, so errors and mail.sh only read this run.
 #            --mail: send emails straight away (sync queue) to the log, with links to :5112; read them with mail.sh
+#            Billing uses the fake provider with self-completing checkouts (BILLING_PROVIDER=fake, BILLING_FAKE_COMPLETE_CHECKOUT=true):
+#            "Upgrade" makes the organization Pro and "Buy" grants credits at once, nothing reaches Stripe.
 #            AI always uses the fake provider (AI_PROVIDER=fake): no key needed, nothing spent. Without --mail, jobs go to
 #            the `e2e` queue, never the developer's own worker (which may have a real key).
 #   stop     stop both
@@ -99,7 +101,9 @@ start() {
   # mail.sh refuses to run without this marker, so a run started without --mail fails loudly instead of finding no emails.
   if [ ${#mail_env[@]} -gt 0 ]; then touch "$state/mail"; else rm -f "$state/mail"; fi
   if [ -f "$log" ]; then wc -l <"$log" | tr -d ' ' >"$state/log.start"; else echo 0 >"$state/log.start"; fi
-  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} ${queue_env[@]+"${queue_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" AI_PROVIDER=fake AI_FAKE_STREAM_DELAY_MS=60 PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
+  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} ${queue_env[@]+"${queue_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" AI_PROVIDER=fake AI_FAKE_STREAM_DELAY_MS=60 \
+    BILLING_PROVIDER=fake BILLING_FAKE_COMPLETE_CHECKOUT=true STRIPE_PRICE_PRO=price_fake_pro STRIPE_PRICE_CREDITS_10=price_fake_credits_10 \
+    PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
     ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
   if [ "$has_web" = 1 ]; then
     (cd "$root/web" && nohup npx vite preview --outDir dist-e2e --host 127.0.0.1 --port "$WEB_PORT" --strictPort \
