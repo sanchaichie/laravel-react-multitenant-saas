@@ -2,7 +2,7 @@
 # Runs the API and the built web app on spare ports for end-to-end checks.
 # Never uses :8100/:5173 (the developer's own servers) or saas-starter's :8000/:3000 and :8011/:3011.
 #
-# Usage: servers.sh start [--mail] | stop | status | cleanup [prefix] | errors
+# Usage: servers.sh start [--mail] | stop | status | cleanup [prefix] | errors | webhooks
 #   start    build web (if web/ exists) into web/dist-e2e with the API URL baked in (skip with SKIP_BUILD=1), start API :8112 (4 workers,
 #            for streaming) and `vite preview` on :5112, wait until both answer.
 #            Records where laravel.log ends, so errors and mail.sh only read this run.
@@ -10,10 +10,14 @@
 #            Billing uses the fake provider with self-completing checkouts (BILLING_PROVIDER=fake, BILLING_FAKE_COMPLETE_CHECKOUT=true):
 #            "Upgrade" makes the organization Pro and "Buy" grants credits at once, nothing reaches Stripe.
 #            AI always uses the fake provider (AI_PROVIDER=fake): no key needed, nothing spent. Without --mail, jobs go to
-#            the `e2e` queue, never the developer's own worker (which may have a real key).
+#            the `e2e` queue (webhooks: `e2e-webhooks`), never the developer's own worker (which may have a real key), and a worker of our own runs them
+#            (with the same settings), so webhook retries wait their real delays. With --mail they run inline, retries at once.
+#            Webhooks: a receiver on 127.0.0.1:8113 (webhook-receiver.php; /fail answers 500), the only private target the
+#            API allows (WEBHOOKS_ALLOWED_PRIVATE_TARGETS). Add a webhook at http://127.0.0.1:8113/hook.
 #   stop     stop both
 #   cleanup  delete <prefix>*@example.com users (prefix starts with e2e-, default e2e-), their tokens and organizations only they belong to
 #   errors   ERROR and worse entries in laravel.log since start (not from Pest runs), or "none"
+#   webhooks what the receiver got since start, one JSON line per request (headers and the raw body), or "none"
 #
 # Ports are also in mail.sh (WEB_PORT); change both together.
 set -uo pipefail
@@ -23,6 +27,7 @@ state="${TMPDIR:-/tmp}/react-saas-e2e"
 log="$root/api/storage/logs/laravel.log"
 API_PORT=8112
 WEB_PORT=5112
+HOOK_PORT=8113
 mkdir -p "$state"
 
 find_php() {
@@ -60,7 +65,18 @@ wait_for() {
 stop() {
   local port pid
   rm -f "$state/mail"
-  for port in $API_PORT $WEB_PORT; do
+  if [ -f "$state/worker.pid" ]; then
+    pid="$(cat "$state/worker.pid")"
+    if [[ "$pid" =~ ^[0-9]+$ ]] && ps -o command= -p "$pid" 2>/dev/null | grep -q 'queue:work'; then
+      kill "$pid" && echo "stopped the e2e queue worker ($pid)"
+    fi
+    rm -f "$state/worker.pid"
+  fi
+  # Any e2e worker left behind (an older run, a lost pid file): it would run stale code.
+  for pid in $(pgrep -f 'artisan queue:work --queue=e2e,e2e-webhooks' 2>/dev/null); do
+    kill "$pid" && echo "stopped a leftover e2e queue worker ($pid)"
+  done
+  for port in $API_PORT $WEB_PORT $HOOK_PORT; do
     for pid in $(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null); do
       case "$(ps -o comm= -p "$pid")" in
         *php*|*node*) kill "$pid" && echo "stopped :$port ($pid)" ;;
@@ -79,7 +95,7 @@ start() {
     *) echo "Unknown option: $1 (only --mail)" >&2; exit 1 ;;
   esac
   php="$(find_php)" || exit 1
-  for port in $API_PORT $WEB_PORT; do
+  for port in $API_PORT $WEB_PORT $HOOK_PORT; do
     if port_busy "$port"; then
       echo "Port $port is in use. Run '$0 stop' or check what is listening (lsof -iTCP:$port)." >&2
       exit 1
@@ -101,16 +117,29 @@ start() {
   # mail.sh refuses to run without this marker, so a run started without --mail fails loudly instead of finding no emails.
   if [ ${#mail_env[@]} -gt 0 ]; then touch "$state/mail"; else rm -f "$state/mail"; fi
   if [ -f "$log" ]; then wc -l <"$log" | tr -d ' ' >"$state/log.start"; else echo 0 >"$state/log.start"; fi
-  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} ${queue_env[@]+"${queue_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" AI_PROVIDER=fake AI_FAKE_STREAM_DELAY_MS=60 \
-    BILLING_PROVIDER=fake BILLING_FAKE_COMPLETE_CHECKOUT=true STRIPE_PRICE_PRO=price_fake_pro STRIPE_PRICE_CREDITS_10=price_fake_credits_10 \
-    PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
+  # The same settings for the API and its worker.
+  local api_env=(${mail_env[@]+"${mail_env[@]}"} ${queue_env[@]+"${queue_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" AI_PROVIDER=fake AI_FAKE_STREAM_DELAY_MS=60
+    BILLING_PROVIDER=fake BILLING_FAKE_COMPLETE_CHECKOUT=true STRIPE_PRICE_PRO=price_fake_pro STRIPE_PRICE_CREDITS_10=price_fake_credits_10
+    WEBHOOKS_ALLOWED_PRIVATE_TARGETS="127.0.0.1:$HOOK_PORT" WEBHOOK_QUEUE=e2e-webhooks)
+  : >"$state/webhooks.log"
+  (cd "$root/.claude/skills/e2e-smoke" && WEBHOOK_RECEIVER_LOG="$state/webhooks.log" nohup "$php" -S "127.0.0.1:$HOOK_PORT" webhook-receiver.php \
+    >"$state/receiver.log" 2>&1 &) </dev/null >/dev/null 2>&1
+  (cd "$root/api/public" && env "${api_env[@]}" PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
     ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
+  if [ ${#queue_env[@]} -gt 0 ]; then
+    # `cd` first and only the worker in the background, so $! is the worker itself (env and nohup exec it).
+    (cd "$root/api" || exit 1
+      env "${api_env[@]}" nohup "$php" artisan queue:work --queue=e2e,e2e-webhooks --sleep=1 --tries=1 >"$state/worker.log" 2>&1 &
+      echo $! >"$state/worker.pid") </dev/null >/dev/null 2>&1
+  fi
   if [ "$has_web" = 1 ]; then
     (cd "$root/web" && nohup npx vite preview --outDir dist-e2e --host 127.0.0.1 --port "$WEB_PORT" --strictPort \
       >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
   fi
 
   wait_for "http://127.0.0.1:$API_PORT/up" || { stop; exit 1; }
+  wait_for "http://127.0.0.1:$HOOK_PORT/" || { stop; exit 1; }
+  : >"$state/webhooks.log"  # the wait's own request
   if [ "$has_web" = 1 ]; then wait_for "http://127.0.0.1:$WEB_PORT/login" || { stop; exit 1; }; fi
   echo "API  http://localhost:$API_PORT   (log: $state/api.log)"
   if [ "$has_web" = 1 ]; then
@@ -118,6 +147,8 @@ start() {
   else
     echo "Web  skipped (no web/ yet)"
   fi
+  echo "Webhook receiver http://127.0.0.1:$HOOK_PORT/hook (/fail answers 500; read with '$0 webhooks')"
+  [ ${#queue_env[@]} -gt 0 ] && echo "Queue worker on the e2e queue (log: $state/worker.log)"
   [ ${#mail_env[@]} -gt 0 ] && echo "Mail sent straight to $log (read with mail.sh)"
   return 0
 }
@@ -169,8 +200,9 @@ cleanup() {
 case "${1:-}" in
   start) start "${2:-}" ;;
   stop) stop ;;
-  status) for p in $API_PORT $WEB_PORT; do port_busy "$p" && echo ":$p up" || echo ":$p down"; done ;;
+  status) for p in $API_PORT $WEB_PORT $HOOK_PORT; do port_busy "$p" && echo ":$p up" || echo ":$p down"; done ;;
+  webhooks) if [ -s "$state/webhooks.log" ]; then cat "$state/webhooks.log"; else echo none; fi ;;
   cleanup) cleanup "${2:-}" ;;
   errors) errors ;;
-  *) echo "Usage: $0 start [--mail]|stop|status|cleanup [prefix]|errors" >&2; exit 1 ;;
+  *) echo "Usage: $0 start [--mail]|stop|status|cleanup [prefix]|errors|webhooks" >&2; exit 1 ;;
 esac

@@ -34,6 +34,7 @@ Read `.claude/skills/e2e-smoke/SKILL.md` first. It's the recipe you follow (curl
 - **Emails:** get links with `.claude/skills/e2e-smoke/mail.sh link <path> <recipient>` and open them in the browser. Never build a link yourself. Check who got what with `mail.sh list`.
 - **Read pages with `browser_snapshot`** (fast, shows text, roles and focus). Take a screenshot only to show a failure. Save it with an explicit path in `.playwright-mcp/`, such as `.playwright-mcp/flow-03-accept.png`.
 - **Several users:** log in as each one in its own tab (`browser_tabs`), or log out and back in. When it matters, also check a token with curl (e.g. a signed-out device gets 401).
+- **Webhooks:** the servers run a receiver at `http://127.0.0.1:8113/hook` (`/fail` answers 500), the only private address the API accepts. `.claude/skills/e2e-smoke/servers.sh webhooks` prints what it got: one JSON line per request with the `x-webhook-*` headers and the raw `body`. Check a signature with `printf '%s' "$timestamp.$body" | openssl dgst -sha256 -hmac "$secret"` (the header is `v1=<that hex>`).
 - **Budget:** about 100 browser actions. If you run out, stop, report what's done, and list what's left.
 - **Bash** is for curl to :8112/:5112, the e2e-smoke scripts, read-only `git`/`grep`/`ls`, and reading logs. Don't edit any file, run migrations, or change settings.
 

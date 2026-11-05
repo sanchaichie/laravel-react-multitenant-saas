@@ -13,6 +13,7 @@ Flow to check: $ARGUMENTS
 ```bash
 .claude/skills/e2e-smoke/servers.sh start           # builds web first (VITE_API_BASE baked in); SKIP_BUILD=1 to reuse web/dist-e2e
 .claude/skills/e2e-smoke/servers.sh start --mail    # same, and emails are sent at once (sync queue) to the log, with links to :5112
+.claude/skills/e2e-smoke/servers.sh webhooks        # what the webhook receiver (http://127.0.0.1:8113/hook, /fail = 500) got: JSON lines
 ```
 - Use `--mail` whenever the flow sends email (verification, password reset, invitations). It doesn't need the developer's `queue:work`, and doesn't touch `.env`. It runs **every** queued job inline (AI summaries, webhooks too), so retries and backoff aren't exercised, and a failing job shows as a 500 on the request. With it an AI summary is already a draft when the task page opens (no "Generating…" step).
 - The API always runs with `BILLING_PROVIDER=fake` and `BILLING_FAKE_COMPLETE_CHECKOUT=true`: "Upgrade to Pro" and "Buy" on the billing page come straight back as paid (Pro, or the credits, audited as from Stripe), and Invoices lists one fake invoice for each. Nothing reaches Stripe. Webhooks can still be posted with curl to check the signature check (any signature is wrong: there's no secret).
