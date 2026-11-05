@@ -27,3 +27,4 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 15 | [Two-factor authentication](15-two-factor-authentication.md) | Done | 24 |
 | 16 | [Stripe billing and invoices](16-stripe-billing-invoices.md) | Done | 18, 19, 20 |
 | 17 | [Platform admin and view as user](17-platform-admin-view-as-user.md) | Done | 25, 26, 27 |
+| 18 | [Outgoing webhooks](18-outgoing-webhooks.md) | Done | (automation conventions) |
