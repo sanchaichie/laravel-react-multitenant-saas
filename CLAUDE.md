@@ -155,7 +155,7 @@ The point of this repo is to learn React.
 - Plan first for anything touching more than 3 files, then wait for approval.
 - Plans live in `docs/plans/NN-task-name.md` (named after the task) with a Status line: Proposed → WIP (on approval) → Done (when committed, with commit hashes). Keep the index in `docs/plans/README.md` in sync.
 - Build in small steps: one feature, tests passing, then commit.
-- Docs change in the same commit as the code they describe: `.env.example` (new keys), `CLAUDE.md` (conventions, commands, tooling), root `README.md` (setup, run steps, features). `/ship-plan` checks this.
-- From plan 03 on, a new page or a user-visible feature gets a README screenshot in the same plan: a PNG in `docs/screenshots/` plus a line in the README "Screenshots" section, captured with the Playwright MCP from e2e demo data (light mode, 1280×800, `e2e-*` accounts cleaned up). Retake an existing shot when a change makes it out of date.
+- Docs change in the same commit as the code they describe: `.env.example` (new keys), `CLAUDE.md` (conventions, commands, tooling), root `README.md` (features in plain words for clients, setup, run steps), `docs/api.md` (endpoints). `/ship-plan` checks this.
+- From plan 03 on, a new page or a user-visible feature gets a README screenshot in the same plan: a PNG in `docs/screenshots/` shown in the README under its feature in "What it does", captured with the Playwright MCP from e2e demo data (light mode, 1280×800, `e2e-*` accounts cleaned up). Retake an existing shot when a change makes it out of date.
 - Commit message format: `type(scope): summary` (e.g. `feat(web): add task list filters`).
 - Ask before adding a new dependency and say why it's needed. The stack listed above is already approved.

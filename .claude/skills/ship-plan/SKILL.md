@@ -16,7 +16,8 @@ Plan: $ARGUMENTS. If no number is given, use the plan marked WIP in `docs/plans/
    - New env key → `api/.env.example`, with a comment.
    - New or changed convention, command, port or architecture rule → `CLAUDE.md`.
    - Setup or run steps, or a user-visible feature, added or changed → `README.md` (root).
-   - New page or visible feature, or a change that makes a shot out of date → screenshot in `docs/screenshots/` and the README "Screenshots" section. If it's missing, stop and take it first.
+   - An API endpoint added or changed → `docs/api.md`.
+   - New page or visible feature, or a change that makes a shot out of date → screenshot in `docs/screenshots/`, shown in the README under its feature ("What it does"). If it's missing, stop and take it first.
    - New `.claude/` skill, agent or MCP server → the tooling section of `CLAUDE.md`.
    - Follow-ups found but not done → the plan's "Follow-ups" section.
 

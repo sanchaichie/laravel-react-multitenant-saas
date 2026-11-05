@@ -2,19 +2,162 @@
 
 [![CI](https://github.com/dtrinidad-iv/react-saas/actions/workflows/ci.yml/badge.svg)](https://github.com/dtrinidad-iv/react-saas/actions/workflows/ci.yml)
 
-A multi-organization SaaS starter with a Laravel API and a React app, being rebuilt from [saas-starter](../saas-starter) (Laravel + Nuxt) one feature at a time, as a way to learn React. Tasks take the place of Projects.
+**A ready-made foundation for a team software product (SaaS).** Companies sign up, invite their people, and work together on tasks, with AI help built in. Accounts, teams, permissions, payments, security and an admin area are already done, so a new product can start from here and spend its time on what makes it different.
 
-## Stack
-- **API (`api/`):** Laravel, PostgreSQL, Sanctum token auth, Cashier (Stripe), Pest
-- **Web (`web/`):** Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, shadcn/ui + Tailwind, react-hook-form + zod, Vitest
+**Contents:** [At a glance](#at-a-glance) · [What it does](#what-it-does) · [Who can do what](#who-can-do-what) · [Security and privacy](#security-and-privacy) · [How it's built](#how-its-built) · [Setup](#setup-for-developers) · [Tests](#tests)
 
-## Status
-You can register (which creates your own organization and sends a link to verify your email), log in, create more organizations and switch between them from the sidebar, and choose which one to work in after logging in when you're in several. On the Members page, owners and admins invite people by email (an invitation link works with or without an account), change roles and remove members; anyone can leave. On the Tasks page, everyone creates and tracks tasks with a status, priority, due date and an assignee from the organization, and filters them by status, priority, assignee, overdue and search (filters live in the URL, so a filtered list can be shared or reloaded); members edit the tasks they created or are assigned to, owners and admins edit any. On the Roles page, each organization defines its own roles (say, a read-only Viewer) from a list of permissions, next to the built-in Owner and the default Admin and Member; nobody can grant more than they have. The Audit log page shows owners and admins who changed what (tasks, members, invitations, roles) with old → new values, filtered by action, person and dates. Each task with a description gets an AI summary (once your email is verified) (Claude, queued in the background) with a few key points: it stays a draft until someone who can edit the task approves it, edits it first or rejects it, and it says when the task has changed since. Asking for summaries needs the "Ask for AI summaries" permission (Admin and Member have it). In the task form, "Improve with AI" rewrites the description (improve, expand or shorten) and streams the suggestion as it's written; you accept it into the field, try again or discard it. On a task, **Ask AI** opens a private chat about that task (only you see your conversation); answers stream in, and you can stop one or clear the conversation. Each organization has a monthly AI budget set by its plan (the owner can lower it, or set it to $0 to turn AI off); once it's spent, AI requests are refused until the next month. On the Billing page, owners upgrade to **Pro** (a bigger AI budget) through Stripe Checkout, buy one-time AI credit packs that add to this month's budget, manage the card or cancel in Stripe's Customer Portal, and list the organization's invoices with links to Stripe's copies. The AI usage page shows owners and admins one month of calls, tokens and cost by feature, person and day, with the budget. Forgot your password? A reset link by email logs you back in. Account settings (from your name in the sidebar) change your name, email and password, list your signed-in devices so you can sign any of them out, and delete your account. You can turn on two-factor authentication there: logging in (and logging in after a password reset) then also asks for a code from an authenticator app, with one-time recovery codes in case you lose your phone. The people who run the app get a **Platform admin** area (a flag set from the command line, with two-factor and a recent code required): they look up any user or organization (plan, AI budget, counts, members, never task content), reset a user's two-factor, sign them out everywhere, suspend or unsuspend them, make a member Owner of an organization whose owners are gone, and **view the app as a user**, read-only, to see what they see. Each action takes a reason and lands in a platform log; the user is emailed, and organizations see "Platform admin" in their own audit log. The current organization is kept on the server, and every organization's data is walled off from the others. The roadmap is in [docs/plans](docs/plans/README.md).
+## At a glance
+- **Teams (organizations).** Each customer company is its own organization, with its own members, data and bill. One person can belong to several, like Slack workspaces, and switch between them.
+- **Tasks.** The example feature: create, assign, prioritize, filter and track work.
+- **AI help.** Summaries of tasks, help writing them, and a private chat about any task. Each organization has a monthly AI spending limit.
+- **Roles and permissions.** Owner, Admin and Member come built in, and each organization can create its own roles, such as a read-only Viewer.
+- **Payments.** A Free and a Pro plan, extra AI credits, card management and invoices, all handled by Stripe.
+- **Security.** Email verification, two-factor login, an audit log of who changed what, and data kept strictly separate between organizations.
+- **Platform admin.** The people running the product can look up users and organizations, help them, and see the app as a user sees it (read-only).
+
+## What it does
+
+### Sign up and log in
+- Anyone can create an account. They get their own organization straight away and an email to confirm their address.
+- Forgot your password? A reset link arrives by email.
+- People who belong to several organizations choose one after logging in.
+
+| | |
+|---|---|
+| ![Log in](docs/screenshots/login.png) | ![Register with field errors](docs/screenshots/register-errors.png) |
+| **Log in** | **Register**: mistakes are shown next to the field they concern |
+| ![Choose an organization](docs/screenshots/select-organization.png) | ![Verify your email](docs/screenshots/verify-email-banner.png) |
+| **Choose an organization** after logging in | **Verify your email** reminder, with a button to resend it |
+
+### Organizations and members
+- Create more organizations and switch between them from the sidebar.
+- Owners and admins invite people by email. The invitation link works whether or not the person already has an account, and expires after 7 days.
+- Owners and admins change a member's role or remove them. Anyone can leave.
+- An organization can never be left without an owner.
+
+| | |
+|---|---|
+| ![Home](docs/screenshots/home.png) | ![Organization switcher](docs/screenshots/organization-switcher.png) |
+| **Dashboard**, with the sidebar showing the current organization and your role | **Organization switcher**: your organizations, and a button to create one |
+| ![Members](docs/screenshots/members.png) | ![Join an organization](docs/screenshots/join.png) |
+| **Members**: roles, invitations by email, pending invitations | **Invitation link**: one click to join |
+
+### Tasks
+- Every task has a title, description, status (To do, In progress, Done), priority, due date and an assignee from the organization.
+- Filter the list by status, priority, assignee, overdue or a search word, and sort it. Filters live in the page address, so a filtered list can be bookmarked or shared.
+- Overdue tasks are flagged automatically.
+- Members edit the tasks they created or are assigned to. Owners and admins edit any task.
+
+| | |
+|---|---|
+| ![Tasks](docs/screenshots/tasks.png) | ![A task](docs/screenshots/task-detail.png) |
+| **Tasks**: filters, search and sorting | **A task**: change its status in place, edit or delete it |
+
+### AI features
+Powered by Claude (Anthropic). AI only ever reads one task at a time, never another organization's data, and never changes anything on its own.
+- **Summaries.** A task with a description gets a short AI summary with key points. It stays a draft until someone approves it, edits it or rejects it, and it says when the task has changed since.
+- **Writing help.** "Improve with AI" in the task form rewrites the description (improve, expand or shorten). The suggestion appears word by word, and you accept it, try again or discard it.
+- **Ask AI.** A private chat about a task. Only you see your own conversation, not even the owner can read it. You can stop an answer or clear the chat.
+- **Spending limit.** Each organization has a monthly AI budget set by its plan. The owner can lower it, or set it to $0 to turn AI off. Once it's spent, AI waits until next month (or until credits are bought).
+- **AI usage page.** Shows owners and admins the month's AI calls and cost by feature, person and day.
+
+| | |
+|---|---|
+| ![An AI task summary to review](docs/screenshots/task-summary.png) | ![AI writing help](docs/screenshots/task-writing-help.png) |
+| **AI summary**: a draft to approve, edit or reject | **AI writing help** in the task form |
+| ![Task chat](docs/screenshots/task-chat.png) | ![AI usage](docs/screenshots/ai-usage.png) |
+| **Ask AI**: a private chat about a task | **AI usage**: the budget, and calls and cost by feature, person and day |
+
+### Billing
+Payments run entirely on Stripe's own secure pages. The app never sees card numbers.
+- **Plans:** Free, or **Pro**, which raises the monthly AI budget.
+- **AI credits:** one-time packs that add to this month's AI budget.
+- **Manage billing:** change the card or cancel in Stripe's customer portal.
+- **Invoices:** listed in the app, each opening Stripe's copy (with a PDF).
+- Only the owner manages billing (or a custom role given that permission).
+
+| | |
+|---|---|
+| ![Billing](docs/screenshots/billing.png) | ![Invoices](docs/screenshots/invoices.png) |
+| **Billing**: the plan, the card, the AI budget, and credits to buy | **Invoices** from Stripe |
+
+### Roles and the audit log
+- **Roles.** Each organization can make its own roles from a list of permissions (for example a "Viewer" who can only read). Nobody can give out more than they have themselves, so an admin can never make themselves an owner.
+- **Audit log.** Owners and admins see who did what and when: tasks, members, invitations, roles, billing. Changes show old → new values. Filter by action, person and dates. Entries can't be edited, and are kept for a year by default.
+
+| | |
+|---|---|
+| ![Roles](docs/screenshots/roles.png) | ![Edit a role](docs/screenshots/role-edit.png) |
+| **Roles**: what each role allows, and how many people have it | **Edit a role**: permissions grouped by area |
+| ![Audit log](docs/screenshots/audit-log.png) | |
+| **Audit log**: who changed what, with old → new values | |
+
+### Your account
+From your name at the bottom of the sidebar:
+- Change your name, email or password. A new email address only takes effect once you confirm it from that inbox, and the old address gets a 7-day "undo" link in case someone else made the change.
+- See every device you're signed in on, and sign any of them out.
+- **Two-factor login:** after your password, also enter a code from an authenticator app (Google Authenticator, 1Password, ...). You get one-time recovery codes in case you lose your phone.
+- Delete your account. Organizations where you're the only member are deleted with it. It's refused while other people still depend on you as the last owner.
+
+| | |
+|---|---|
+| ![Account settings](docs/screenshots/account.png) | ![Two-factor setup](docs/screenshots/two-factor-setup.png) |
+| **Account settings** | **Two-factor setup**: scan the QR code, then enter a code |
+
+### Platform admin (for the team running the product)
+Not an organization role: only granted from the server's command line, and only to people with two-factor login turned on. Admins:
+- search all users and organizations (plan, AI budget, member counts; never task content or chats);
+- help a user: reset their two-factor login, sign them out everywhere, or suspend and unsuspend them;
+- make a member Owner of an organization whose owners are gone;
+- **view the app as a user**, read-only and for 30 minutes, to see exactly what they see. Private content stays hidden.
+
+Every admin action needs a written reason and a fresh two-factor code, is recorded in a platform log, and the user is emailed. The organization's own audit log shows "Platform admin".
+
+| | |
+|---|---|
+| ![Platform admin: users](docs/screenshots/admin-users.png) | ![Platform admin: an organization](docs/screenshots/admin-organization.png) |
+| **Users**: search everyone | **An organization**: plan, AI budget, counts and members |
+| ![Platform admin: actions on a user](docs/screenshots/admin-user-actions.png) | ![Viewing as a user](docs/screenshots/admin-view-as.png) |
+| **Actions** on a user, each with a reason | **View as user**: read-only, with private content hidden |
+
+## Who can do what
+The three roles every organization starts with. Owners can change Admin and Member, or add their own roles.
+
+| | Owner | Admin | Member |
+|---|:---:|:---:|:---:|
+| See all tasks | ✓ | ✓ | ✓ |
+| Create tasks, edit their own and those assigned to them | ✓ | ✓ | ✓ |
+| Edit and delete anyone's tasks | ✓ | ✓ | |
+| Use AI (summaries, writing help, chat) | ✓ | ✓ | ✓ |
+| Invite people, change roles, remove members | ✓ | ✓ | |
+| See the audit log | ✓ | ✓ | |
+| See AI usage and cost | ✓ | ✓ | |
+| Create and edit roles | ✓ | | |
+| Change the AI budget | ✓ | | |
+| Manage the plan, card and invoices | ✓ | | |
+
+Owners can do everything. An admin can't change or remove an owner.
+
+## Security and privacy
+- **Each organization's data is walled off.** Users never pick which organization's data they see: the server decides from who they are, on every request. Automated tests check this for every feature.
+- **Logins are protected:** limits on attempts, optional two-factor login, emails for every important account change, with undo links, and "sign out everywhere".
+- **Payments never touch the app:** cards are entered on Stripe's pages only.
+- **AI keys stay on the server.** AI output is always a suggestion a person approves.
+- **Everything important is recorded:** the audit log for each organization, and a separate log of platform admin actions.
+- **Private stays private:** task chats are visible only to their author, and even a platform admin viewing as a user can't read task content.
+
+## How it's built
+- **Server (`api/`):** Laravel (PHP) with a PostgreSQL database, Stripe through Laravel Cashier, Claude for AI. Tested with Pest.
+- **Web app (`web/`):** React 19 with TypeScript, styled with Tailwind and shadcn/ui. Tested with Vitest.
+- Every change runs the full test suite automatically on GitHub (the CI badge above).
+- Built one feature at a time from written plans ([docs/plans](docs/plans/README.md)). It's a React rebuild of the earlier [saas-starter](../saas-starter) (Laravel + Nuxt), with Tasks in place of Projects.
+- For developers: the [API reference](docs/api.md) lists every endpoint, and [CLAUDE.md](CLAUDE.md) has the code conventions.
+
+# Setup (for developers)
 
 ## Requirements
 PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
 
-## Setup
 
 ### 1. Databases
 Create two databases: one for the app, and one for the tests (the tests wipe theirs). Commands that wipe a database (`migrate:fresh`, `db:wipe`, ...) refuse to run unless its name ends in `_test`, so the app database can't be lost by accident.
@@ -94,79 +237,7 @@ Every AI call is recorded in the `ai_usage` table (tokens and cost). To summariz
 Daily cleanup (expired invitations, audit log entries past `AUDIT_RETENTION_DAYS`) runs from the Laravel scheduler: `cd api && php artisan schedule:work` locally, or a cron entry for `php artisan schedule:run` in production.
 Open http://localhost:5173 and create an account. Vite must stay on :5173, the only origin the API's CORS allows (`FRONTEND_URL`).
 
-The API answers on `http://localhost:8100/api`:
-
-| Endpoint | What it does |
-|---|---|
-| `POST /api/register` | Create an account (`name`, `email`, `password`, `password_confirmation`); returns `{user, token}` |
-| `POST /api/login` | `email`, `password`; returns `{user, token}`, or `{two_factor: true, challenge}` when two-factor is on |
-| `POST /api/two-factor-challenge` | `challenge` plus `code` (6 digits from the app) or `recovery_code`; returns `{user, token}`. A challenge lasts 5 minutes and 5 tries; 10 wrong codes in 15 minutes pause the account's logins and email it |
-| `POST /api/logout` | Revokes the token it's called with |
-| `POST /api/forgot-password` | `email`; always the same answer, and emails a reset link if an account uses it (6 a minute per IP, one link a minute per address) |
-| `POST /api/reset-password` | `token`, `email`, `password`, `password_confirmation` from the link; signs out every device, verifies the email, and returns `{user, token}` (a challenge when two-factor is on) |
-| `PATCH /api/account` | Your `name` |
-| `PUT /api/account/email` | `email`, `current_password`: asks for the change (10 a day). Nothing changes until the link mailed to the new address is followed; the current one gets a notice. `pending_email` shows on the user |
-| `POST /api/account/email/revert/{id}/{old}/{new}` | The undo link from the "email was changed" notice (7 days, no login): the old address comes back, every device is signed out, two-factor set up since the change is turned off, and it gets a password reset link |
-| `POST /api/account/email/confirm/{id}/{hash}` | The link from that email, posted by `/confirm-email` while logged in: the new address becomes the email (verified), and other devices are signed out. `DELETE /api/account/email/pending` cancels the request |
-| `PUT /api/account/password` | `current_password`, `password`, `password_confirmation`; other devices are signed out |
-| `DELETE /api/account` | `password`. Refused (422) while you're the last owner of an organization with other members, or the only member of one with a paid plan that still renews; organizations where you're alone are deleted with their data, and you leave the others |
-| `POST /api/account/two-factor` | `current_password`: starts the setup and returns `secret` and `otpauth_uri` (for the QR code); still off |
-| `POST /api/account/two-factor/confirm` | `code` from the app: turns it on, signs out other devices and returns 8 `recovery_codes` (shown once) |
-| `POST /api/account/two-factor/recovery-codes` | `current_password`, `code`: a new set of recovery codes; the old ones stop working |
-| `POST /api/account/two-factor/revert/{id}/{at}` | The "This wasn't me" link from the "two-factor was turned on" email (7 days, no login): turns it off, signs out every device and sends a password reset link |
-| `DELETE /api/account/two-factor` | `current_password` and a `code` (or a `recovery_code`): turns it off |
-| `POST /api/account/two-factor/reconfirm` | `code` from the app: marks this device as having just passed one (platform admin routes need a recent one). 6 a minute |
-| `GET /api/account/devices` | Your signed-in devices (`name`, `ip_address`, `last_used_at`, `is_current`); `DELETE /api/account/devices/{id}` signs one out |
-| `GET /api/me` | The current user, with `current_organization` (and your role in it) |
-| `GET /api/organizations` | Your organizations with your role, and `meta.current_organization_id` |
-| `POST /api/organizations` | Create one (`name`); you're its owner and it becomes current. 20 a minute |
-| `POST /api/organizations/{id}/switch` | Make one of yours current (404 if you're not a member) |
-| `POST /api/email/verify/{id}/{hash}` | The signed link from the verification email (the app posts it); `POST /api/email/verification-notification` sends a new one |
-| `GET /api/members` | Members of the current organization, with what you may do to each (`can`, `assignable_roles`) |
-| `PATCH /api/members/{id}` | Change a role (`role_id`: one of the organization's roles) |
-| `DELETE /api/members/{id}` | Remove someone, or leave (your own id) |
-| `GET /api/invitations` | Pending invitations of the current organization |
-| `POST /api/invitations` | Invite (`email`, `role_id`); needs a verified email. Emails a 7-day link to `/join/{token}` |
-| `DELETE /api/invitations/{id}` | Revoke |
-| `GET /api/join/{token}` / `POST /api/join/{token}` | See and accept an invitation (logged in as the invited address) |
-| `GET /api/tasks` | Tasks of the current organization, 20 a page. Filters: `status`, `priority`, `assignee` (an id, `me` or `none`), `overdue=1`, `search`; `sort` = `newest`, `due` or `priority`; `page` |
-| `POST /api/tasks` | Create (`title`, and optionally `description`, `status`, `priority`, `due_date` as `YYYY-MM-DD`, `assignee_id`: a member) |
-| `GET /api/tasks/{id}` | One task, with what you may do (`can`) and `is_overdue` |
-| `PATCH /api/tasks/{id}` | Change any of the fields above |
-| `DELETE /api/tasks/{id}` | Delete |
-| `GET /api/tasks/{id}/summary` | The task's AI summary: `data` (the latest, any status: `pending`, `draft`, `approved`, `rejected`, `failed`), `approved` (the one shown until a newer one is approved) and `can.regenerate` |
-| `POST /api/tasks/{id}/summary` | Ask for a new one (202, pending; or the one already pending). For whoever may edit the task and has `ai.use`, with a verified email; 5 a minute per organization; 402 `ai_budget_exceeded` once the monthly budget is spent |
-| `POST /api/tasks/writing-help` | AI writing help for the New task form (`mode`: `improve`, `expand`, `shorten`; `title`, `description`), answered as server-sent events (`delta`, `done`, `error`). Needs `ai.use` and `tasks.create`, a verified email; 402 over budget, 429 over the rate limit or with too many answers already streaming (2 per organization, 2 per person, 3 on the server). `/api/tasks/{id}/writing-help` does the same for a task you may edit |
-| `GET /api/tasks/{id}/chat` | Your last 50 messages about the task, oldest first (`role`, `content`, `status`: `complete`, `stopped`, `failed`). Needs `ai.use`; only ever your own |
-| `POST /api/tasks/{id}/chat` | Ask a question (`message`, up to 2000 characters); the answer streams back as server-sent events and is saved. Verified email, `throttle:ai`, budget (402) and stream limits (429), as for writing help |
-| `DELETE /api/tasks/{id}/chat` | Clear your conversation about the task (204); other people's stay |
-| `POST /api/tasks/{id}/summaries/{summaryId}/approve` | Approve a draft, optionally edited (`summary`, `key_points`); `.../reject` rejects it. 409 unless it's a draft |
-| `GET /api/roles` | The organization's roles (Owner first) with their permissions, member counts and what you may do (`can`) |
-| `POST /api/roles` | Create (`name`, `permissions`: a list from the catalogue); needs `roles.manage`, and only permissions you have |
-| `PATCH /api/roles/{id}` | Rename or change permissions (the whole list); only roles that can do strictly less than yours, never Owner |
-| `DELETE /api/roles/{id}` | Delete a role nobody has; its pending invitations stop working |
-| `GET /api/permissions` | The permission catalogue (`value`, `label`, `group`) |
-| `GET /api/audit-logs` | The organization's audit log, newest first, 25 at a time (`meta.next_cursor`, sent back as `cursor`). Filters: `action`, `actor` (a user id), `from` and `to` (`YYYY-MM-DD`). Needs `audit_log.view`; IP addresses only for owners |
-| `GET /api/audit-log/actions` | The action catalogue for the filter (`value`, `label`, `group`) |
-| `GET /api/ai-usage` | One month (`month=YYYY-MM`, default this one, UTC) of AI usage: `totals`, `by_feature`, `by_user`, `by_day` (calls, failed, tokens, cost), this month's `budget` and `can.manage_budget`. Needs `ai_usage.view` |
-| `PUT /api/ai-budget` | Set the monthly AI budget (`monthly_budget_usd`: 0 up to the plan's budget, cents at most; `null` = the plan's budget). Needs `ai_budget.manage` (Owner) and a verified email; 20 a minute |
-| `GET /api/billing` | The plan, subscription (`status`, `ends_at`), card, the plans and credit packs on offer, the AI budget with credits, and `can`. Needs `billing.manage` (Owner); no Stripe call |
-| `POST /api/billing/checkout` | `plan` (a key: `pro`); returns `{url}` of Stripe Checkout. Refused while a subscription is still billed. Verified email |
-| `POST /api/billing/credits/checkout` | `pack` (a key: `credits_10`); returns `{url}` of Stripe Checkout. The credits last until the end of the UTC month |
-| `POST /api/billing/portal` | Returns `{url}` of Stripe's Customer Portal (card, cancel), once the organization has paid once |
-| `GET /api/billing/invoices` | The organization's invoices from Stripe, newest first, 20 at a time (`meta.next_cursor`, sent back as `starting_after`); links only to Stripe's own pages |
-| `POST /api/stripe/webhook` | From Stripe only (signed): keeps subscriptions in sync and grants paid credits. 120 a minute |
-| `GET /api/admin/users` / `GET /api/admin/organizations` | Platform admins only (404 for everyone else): every user (`q` searches name and email) or organization (`q` searches the name), newest first, 25 a page. 403 `two_factor_required` without two-factor, `two_factor_reauth` without a code on this device in `ADMIN_TWO_FACTOR_TTL_MINUTES`; 60 a minute |
-| `GET /api/admin/users/{id}` | A user: flags, signed-in devices, last active, organizations and roles. Logged in the platform log |
-| `GET /api/admin/organizations/{id}` | An organization: plan and subscription, AI budget, counts, members (first 100). Never task content. Logged |
-| `GET /api/admin/audit-log` | The platform log, newest first, 25 at a time (`meta.next_cursor`) |
-| `POST /api/admin/users/{id}/two-factor/reset`, `/sign-out`, `/suspend`, `/unsuspend` | Act on a user, with a `reason` (10–500 characters, platform log only) and a code within `ADMIN_ACTION_TWO_FACTOR_TTL_MINUTES`. Never on a platform admin. Returns the user |
-| `POST /api/admin/organizations/{id}/owners` | `user_id` (a member of that organization) and `reason`: makes them Owner; its audit log shows "Platform admin" |
-| `POST /api/admin/users/{id}/impersonate` | `reason`: a read-only token for the user (`{token, expires_at}`, `ADMIN_IMPERSONATION_MINUTES`). Every write is refused (403 `impersonation_read_only`) except logout and switching organization; task descriptions, summaries, chats and devices are hidden; the user is emailed |
-
-Organization-scoped routes (members, invitations, tasks, roles, audit log, AI usage, billing) act on your current organization: there's never an organization id in the URL.
-
-Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email. Billing routes that call Stripe allow 20 a minute per person and 60 per organization.
+The API answers on `http://localhost:8100/api`: every endpoint is listed in the [API reference](docs/api.md).
 
 ## Tests
 ```bash
@@ -177,40 +248,6 @@ cd web && npm test             # Vitest + Testing Library, API calls mocked
 `npm run lint`, `npm run typecheck` and `npm run build` check the rest of the web app.
 
 GitHub Actions runs all of these on every push to `main` and every pull request (`.github/workflows/ci.yml`). To stop a red run from being merged, require the `API (Pint, Pest)` and `Web (lint, typecheck, test, build)` checks under Settings → Branches → branch protection for `main`.
-
-## Screenshots
-| | |
-|---|---|
-| ![Log in](docs/screenshots/login.png) | ![Register with field errors](docs/screenshots/register-errors.png) |
-| **Log in** | **Register**, with errors from the form and the API on their fields |
-| ![Home](docs/screenshots/home.png) | ![Organization switcher](docs/screenshots/organization-switcher.png) |
-| **Dashboard**, with the sidebar: current organization and your role | **Organization switcher**: your organizations, and create one |
-| ![Choose an organization](docs/screenshots/select-organization.png) | ![Members](docs/screenshots/members.png) |
-| **Choose an organization**, after logging in when you're in several | **Members**: roles, invite by email, pending invitations |
-| ![Join an organization](docs/screenshots/join.png) | ![Verify your email](docs/screenshots/verify-email-banner.png) |
-| **Invitation link**: accept to join | **Verify your email** banner, with Resend |
-| ![Tasks](docs/screenshots/tasks.png) | ![A task](docs/screenshots/task-detail.png) |
-| **Tasks**: filter by status, priority, assignee and overdue, search and sort (all in the URL) | **A task**: change its status in place, edit or delete it per your permissions |
-| ![Roles](docs/screenshots/roles.png) | ![Edit a role](docs/screenshots/role-edit.png) |
-| **Roles**: what each role allows, and how many have it | **Edit a role**: permissions grouped by area |
-| ![Audit log](docs/screenshots/audit-log.png) | ![An AI task summary to review](docs/screenshots/task-summary.png) |
-| **Audit log**: who changed what, with old → new values; filter by action, person and dates | **AI summary** of a task: a draft to approve, edit or reject |
-| ![AI usage](docs/screenshots/ai-usage.png) | ![AI writing help](docs/screenshots/task-writing-help.png) |
-| **AI usage**: the month's budget (the plan's, plus AI credits), and calls and cost by feature, person and day | **AI writing help** in the task form: a streamed suggestion to accept, try again or discard |
-| ![Task chat](docs/screenshots/task-chat.png) | ![Account settings](docs/screenshots/account.png) |
-| **Ask AI**: a private chat about a task, answers streamed | **Account settings**: name, email, password, two-factor, signed-in devices, delete account |
-| ![Two-factor setup](docs/screenshots/two-factor-setup.png) | ![Billing](docs/screenshots/billing.png) |
-| **Two-factor setup**: scan the QR code (or type the key), then enter a code from the app | **Billing**: the plan and card, the AI budget with credits, and a credit pack to buy, all paid on Stripe |
-| ![Invoices](docs/screenshots/invoices.png) | |
-| **Invoices**: the organization's invoices and receipts from Stripe, each opening Stripe's copy | |
-
-### Platform admin
-| | |
-|---|---|
-| ![Platform admin: users](docs/screenshots/admin-users.png) | ![Platform admin: an organization](docs/screenshots/admin-organization.png) |
-| **Users**: search everyone, with verified, two-factor, admin and suspended badges | **An organization**: plan, AI budget, counts and members, with Make Owner |
-| ![Platform admin: actions on a user](docs/screenshots/admin-user-actions.png) | ![Viewing as a user](docs/screenshots/admin-view-as.png) |
-| **Actions** on a user, each with a reason for the platform log | **View as user**: the app as they see it, read-only, with task content hidden |
 
 ## Working with Claude Code
 The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.
