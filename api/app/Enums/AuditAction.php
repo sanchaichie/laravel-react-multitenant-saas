@@ -27,6 +27,11 @@ enum AuditAction: string
     case PlanChanged = 'billing.plan_changed';
     case AiCreditsPurchased = 'billing.credits_purchased';
     case SupportViewedAs = 'support.viewed_as';
+    case WebhookCreated = 'webhook.created';
+    case WebhookUpdated = 'webhook.updated';
+    case WebhookDeleted = 'webhook.deleted';
+    case WebhookSecretRolled = 'webhook.secret_rolled';
+    case WebhookDisabled = 'webhook.disabled';
 
     public function label(): string
     {
@@ -50,6 +55,11 @@ enum AuditAction: string
             self::PlanChanged => 'Changed the plan',
             self::AiCreditsPurchased => 'Bought AI credits',
             self::SupportViewedAs => 'Viewed the app as a member',
+            self::WebhookCreated => 'Added a webhook',
+            self::WebhookUpdated => 'Edited a webhook',
+            self::WebhookDeleted => 'Deleted a webhook',
+            self::WebhookSecretRolled => 'Rolled a webhook secret',
+            self::WebhookDisabled => 'Disabled a failing webhook',
         };
     }
 
@@ -63,6 +73,8 @@ enum AuditAction: string
             self::TaskCreated, self::TaskUpdated, self::TaskDeleted,
             self::SummaryRequested, self::SummaryApproved, self::SummaryRejected => 'Tasks',
             self::PlanChanged, self::AiCreditsPurchased => 'Billing',
+            self::WebhookCreated, self::WebhookUpdated, self::WebhookDeleted,
+            self::WebhookSecretRolled, self::WebhookDisabled => 'Webhooks',
         };
     }
 }

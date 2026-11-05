@@ -3,7 +3,9 @@
 namespace App\Actions\Tasks;
 
 use App\Actions\Tasks\Concerns\LocksAssignee;
+use App\Events\TaskUpdated;
 use App\Models\Task;
+use App\Webhooks\WebhookPayload;
 use Illuminate\Support\Facades\DB;
 
 class UpdateTask
@@ -23,6 +25,12 @@ class UpdateTask
             }
 
             $task->update($attributes);
+
+            // Dispatched after commit (ShouldDispatchAfterCommit), only if something changed.
+            $changed = WebhookPayload::changedFields(array_keys($task->getChanges()));
+            if ($changed !== []) {
+                TaskUpdated::dispatch($task->id, $task->organization_id, $changed);
+            }
 
             return $task;
         });

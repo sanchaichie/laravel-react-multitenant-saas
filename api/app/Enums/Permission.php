@@ -19,6 +19,7 @@ enum Permission: string
     case AiUsageView = 'ai_usage.view';
     case AiBudgetManage = 'ai_budget.manage';
     case BillingManage = 'billing.manage';
+    case WebhooksManage = 'webhooks.manage';
 
     public function label(): string
     {
@@ -33,6 +34,7 @@ enum Permission: string
             self::AiUsageView => 'View AI usage and the budget',
             self::AiBudgetManage => 'Change the monthly AI budget',
             self::BillingManage => 'Manage the plan, payment details and invoices',
+            self::WebhooksManage => 'Manage webhooks (they send task content to other services)',
         };
     }
 
@@ -42,7 +44,7 @@ enum Permission: string
             self::TasksCreate, self::TasksManage => 'Tasks',
             self::MembersInvite, self::MembersManage => 'Members',
             self::RolesManage => 'Roles',
-            self::AuditLogView, self::BillingManage => 'Organization',
+            self::AuditLogView, self::BillingManage, self::WebhooksManage => 'Organization',
             self::AiUse, self::AiUsageView, self::AiBudgetManage => 'AI',
         };
     }

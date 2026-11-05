@@ -18,8 +18,11 @@ use App\Models\Task;
 use App\Models\TaskChatMessage;
 use App\Models\TaskSummary;
 use App\Models\User;
+use App\Models\WebhookDelivery;
+use App\Models\WebhookEndpoint;
 use App\Support\CurrentOrganization;
 use App\Support\Totp;
+use App\Webhooks\Contracts\HostResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -442,4 +445,58 @@ function wrongAdminCode(): string
 function platformAuditLog(): EloquentCollection
 {
     return PlatformAuditLog::query()->oldest('id')->get();
+}
+
+/**
+ * A webhook endpoint in the organization (created as its owner would, without the API).
+ * Secret: whsec_test_secret. URL: https://hooks.example.com/... (public in fakeDns).
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createWebhook(Organization $organization, array $attributes = []): WebhookEndpoint
+{
+    return inOrganization($organization, fn () => WebhookEndpoint::withoutAuditing(function () use ($attributes) {
+        $endpoint = new WebhookEndpoint;
+        $endpoint->forceFill([
+            'url' => 'https://hooks.example.com/'.Str::random(8),
+            'events' => ['task.created', 'task.updated', 'task.deleted'],
+            'secret' => 'whsec_test_secret',
+            ...$attributes,
+        ])->save();
+
+        return $endpoint;
+    }));
+}
+
+/**
+ * A delivery of an endpoint, as QueueDelivery writes it (no job queued).
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createDelivery(WebhookEndpoint $endpoint, array $attributes = []): WebhookDelivery
+{
+    return inOrganization($endpoint->organization, function () use ($endpoint, $attributes) {
+        $delivery = new WebhookDelivery;
+        $id = (string) Str::uuid();
+        $delivery->forceFill([
+            'webhook_endpoint_id' => $endpoint->id,
+            'event_id' => $id,
+            'event' => 'task.created',
+            'payload' => ['id' => $id, 'type' => 'task.created', 'created_at' => now()->toIso8601ZuluString(), 'data' => ['task' => ['id' => 1]]],
+            ...$attributes,
+        ])->save();
+
+        return $delivery;
+    });
+}
+
+/**
+ * Make hosts resolve to these addresses in WebhookUrl (on top of hooks.example.com).
+ *
+ * @param  array<string, list<string>>  $hosts
+ */
+function fakeDns(array $hosts): void
+{
+    $resolver = app(HostResolver::class);
+    $resolver->hosts = [...$resolver->hosts, ...$hosts];
 }

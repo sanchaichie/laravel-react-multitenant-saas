@@ -4,8 +4,10 @@ namespace Tests;
 
 use App\Ai\Clients\FakeAiClient;
 use App\Billing\FakeBillingGateway;
+use App\Webhooks\Contracts\HostResolver;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Http;
+use Tests\Fixtures\FakeHostResolver;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -13,9 +15,12 @@ abstract class TestCase extends BaseTestCase
 
     protected FakeBillingGateway $billing;
 
+    protected FakeHostResolver $dns;
+
     /**
      * No test talks to a real AI provider or to Stripe: the fakes are the default
-     * clients, and any HTTP call that isn't faked with Http::fake() fails the test.
+     * clients, and any HTTP call that isn't faked with Http::fake() fails the test. DNS for
+     * webhook URLs is faked too.
      * Webhooks are signed with a test secret (stripeWebhook()).
      */
     protected function setUp(): void
@@ -38,6 +43,11 @@ abstract class TestCase extends BaseTestCase
         ]);
         $this->billing = new FakeBillingGateway;
         $this->app->instance(FakeBillingGateway::class, $this->billing);
+
+        // Webhook URLs: hooks.example.com is public; fakeDns() adds others.
+        config(['webhooks.allowed_private_targets' => []]);
+        $this->dns = new FakeHostResolver(['hooks.example.com' => ['93.184.216.34']]);
+        $this->app->instance(HostResolver::class, $this->dns);
 
         Http::preventStrayRequests();
     }

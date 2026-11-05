@@ -18,6 +18,8 @@ use App\Models\PersonalAccessToken;
 use App\Models\User;
 use App\Policies\BillingPolicy;
 use App\Support\CurrentOrganization;
+use App\Webhooks\Contracts\HostResolver;
+use App\Webhooks\DnsHostResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -76,6 +78,9 @@ class AppServiceProvider extends ServiceProvider
             default => throw new InvalidArgumentException('Unknown billing provider ['.config('billing.provider').'].'),
         });
 
+        // DNS for webhook URLs (WebhookUrl). Tests bind a fake (fakeDns()).
+        $this->app->bind(HostResolver::class, DnsHostResolver::class);
+
         // The organization is the Stripe customer. Cashier's own routes are off: ours is
         // POST /api/stripe/webhook, which always checks the signature (VerifyStripeWebhook).
         Cashier::useCustomerModel(Organization::class);
@@ -114,6 +119,12 @@ class AppServiceProvider extends ServiceProvider
         // others can reach (production or a staging copy).
         if (config('billing.provider') === 'fake' && ! $this->app->environment('local', 'testing')) {
             throw new LogicException('BILLING_PROVIDER=fake is only allowed when APP_ENV is local or testing.');
+        }
+
+        // Private webhook targets skip the SSRF check (a local receiver for e2e runs):
+        // never on a server others can reach.
+        if (config('webhooks.allowed_private_targets') !== [] && ! $this->app->environment('local', 'testing')) {
+            throw new LogicException('WEBHOOKS_ALLOWED_PRIVATE_TARGETS is only allowed when APP_ENV is local or testing.');
         }
 
         // Billing has no model of its own: always the current organization's.
@@ -175,6 +186,10 @@ class AppServiceProvider extends ServiceProvider
                     'message' => 'Too many AI requests for this organization. Try again in a minute.',
                 ], 429));
         });
+
+        // Webhook delivery attempts, per organization (DeliverWebhook).
+        RateLimiter::for('webhooks', fn (object $job) => Limit::perMinute(config('webhooks.rate_limit_per_minute'))
+            ->by('webhooks:'.($job instanceof OrganizationJob ? $job->organizationId : 'none')));
 
         // Billing routes that call Stripe. Stripe's rate limit is for the whole account, so
         // one busy organization mustn't use it up: per user, and per organization. Only

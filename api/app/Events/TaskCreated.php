@@ -2,13 +2,15 @@
 
 namespace App\Events;
 
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * A task was created. Plain ids, so a listener loads what it needs inside
- * CurrentOrganization::run(). Listener: QueueTaskSummary (AI summary).
+ * CurrentOrganization::run(). After commit: a rolled-back create sends nothing.
+ * Listeners: QueueTaskSummary (AI summary), QueueWebhookDeliveries.
  */
-class TaskCreated
+class TaskCreated implements ShouldDispatchAfterCommit
 {
     use Dispatchable;
 

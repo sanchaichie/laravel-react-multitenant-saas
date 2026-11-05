@@ -26,6 +26,8 @@ use App\Http\Controllers\Api\TaskSummaryController;
 use App\Http\Controllers\Api\TaskWritingHelpController;
 use App\Http\Controllers\Api\TwoFactorChallengeController;
 use App\Http\Controllers\Api\TwoFactorController;
+use App\Http\Controllers\Api\WebhookController;
+use App\Http\Controllers\Api\WebhookDeliveryController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\VerifyStripeWebhook;
@@ -201,6 +203,24 @@ Route::middleware(['auth:sanctum', 'impersonation'])->group(function () {
             Route::post('/billing/portal', [BillingController::class, 'portal'])->middleware('verified');
             // Live from Stripe, with billing details: not in a support view.
             Route::get('/billing/invoices', [BillingController::class, 'invoices'])->middleware('not-impersonating');
+        });
+
+        // Outgoing webhooks (webhooks.manage). They send task content to a URL outside the
+        // app: creating, editing and sending need a verified email. {webhook} binds through
+        // the organization scope, {delivery} must belong to it.
+        Route::scopeBindings()->where(['webhook' => '[0-9]{1,18}', 'delivery' => '[0-9]{1,18}'])->middleware('throttle:60,1,webhooks')->group(function () {
+            Route::get('/webhooks', [WebhookController::class, 'index']);
+            Route::get('/webhooks/{webhook}', [WebhookController::class, 'show']);
+            Route::delete('/webhooks/{webhook}', [WebhookController::class, 'destroy']);
+            Route::middleware('verified')->group(function () {
+                Route::post('/webhooks', [WebhookController::class, 'store']);
+                Route::patch('/webhooks/{webhook}', [WebhookController::class, 'update']);
+                Route::post('/webhooks/{webhook}/secret', [WebhookController::class, 'rollSecret']);
+                Route::post('/webhooks/{webhook}/test', [WebhookController::class, 'test'])->middleware('throttle:10,1,webhook-send');
+                Route::post('/webhooks/{webhook}/deliveries/{delivery}/resend', [WebhookDeliveryController::class, 'resend'])->middleware('throttle:10,1,webhook-send');
+            });
+            // Payloads hold task content: not in a support view.
+            Route::get('/webhooks/{webhook}/deliveries', [WebhookDeliveryController::class, 'index'])->middleware('not-impersonating');
         });
     });
 });

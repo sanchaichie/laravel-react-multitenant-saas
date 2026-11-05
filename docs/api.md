@@ -72,6 +72,47 @@ Locally the API answers on `http://localhost:8100/api`:
 | `POST /api/admin/organizations/{id}/owners` | `user_id` (a member of that organization) and `reason`: makes them Owner; its audit log shows "Platform admin" |
 | `POST /api/admin/users/{id}/impersonate` | `reason`: a read-only token for the user (`{token, expires_at}`, `ADMIN_IMPERSONATION_MINUTES`). Every write is refused (403 `impersonation_read_only`) except logout and switching organization; task descriptions, summaries, chats and devices are hidden; the user is emailed |
 
-Organization-scoped routes (members, invitations, tasks, roles, audit log, AI usage, billing) act on your current organization: there's never an organization id in the URL.
+| `GET /api/webhooks` | The organization's webhooks (`url`, `host`, `events`, `enabled`, `disabled_reason`, `last_delivery`), and `meta.max` (5). Needs `webhooks.manage` (Owner). Never the secret |
+| `POST /api/webhooks` | `url` (https, resolving only to public addresses), `description`, `events` (any of `task.created`, `task.updated`, `task.deleted`); returns the webhook and `meta.secret`, shown this once. Verified email; 60 a minute |
+| `GET /api/webhooks/{id}` / `PATCH /api/webhooks/{id}` / `DELETE /api/webhooks/{id}` | One webhook; change any of the fields above, or `enabled` (turning it on resets its failure count); delete it with its delivery log |
+| `POST /api/webhooks/{id}/secret` | A new signing secret (`meta.secret`, shown once); the old one stops working at once |
+| `POST /api/webhooks/{id}/test` | Sends a `ping` event (202, the delivery). 10 a minute with resends |
+| `GET /api/webhooks/{id}/deliveries` | What was sent and what came back, newest first, 20 at a time (`meta.next_cursor`, sent back as `cursor`). Not in a support view |
+| `POST /api/webhooks/{id}/deliveries/{deliveryId}/resend` | The same event (same id and payload) as a new delivery (202) |
+Organization-scoped routes (members, invitations, tasks, roles, audit log, AI usage, billing, webhooks) act on your current organization: there's never an organization id in the URL.
 
 Send the token as `Authorization: Bearer <token>`, with `Accept: application/json`. Register allows 6 attempts a minute per IP; login 6 a minute per email and IP, and 30 per email. Billing routes that call Stripe allow 20 a minute per person and 60 per organization.
+
+## Receiving webhooks
+Each delivery is a `POST` with a JSON body:
+```json
+{
+  "id": "9b7c1f0e-2a3d-4c5b-8e6f-7a8b9c0d1e2f",
+  "type": "task.updated",
+  "created_at": "2026-11-08T10:00:00Z",
+  "data": {
+    "task": { "id": 42, "title": "Ship it", "description": "…", "status": "done", "priority": "high",
+              "due_date": "2026-11-10", "assignee": { "id": 7, "name": "Grace" }, "created_by": 3,
+              "created_at": "…", "updated_at": "…" },
+    "changed": ["status"]
+  }
+}
+```
+`task.created` and `task.deleted` carry `data.task` (a deleted task as it was); `task.updated` adds `data.changed`, the fields that changed; `ping` (Send test event) carries `data.endpoint.id`. Events can arrive out of order: compare `created_at`.
+
+Headers: `X-Webhook-Id` (the event id: the same on a retry or a resend, so ignore one you've already handled), `X-Webhook-Event`, `X-Webhook-Timestamp` (unix seconds) and `X-Webhook-Signature: v1=<hex>`, the HMAC-SHA256 of `"{timestamp}.{raw body}"` with the webhook's secret. Answer with any 2xx within 10 seconds; anything else (redirects included) is retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 8 hours.
+
+Verify before trusting it, on the raw body (before parsing the JSON):
+```php
+$timestamp = (int) $request->header('X-Webhook-Timestamp');
+$expected = 'v1='.hash_hmac('sha256', $timestamp.'.'.$request->getContent(), $secret);
+$valid = hash_equals($expected, (string) $request->header('X-Webhook-Signature'))
+    && abs(time() - $timestamp) <= 300; // refuse old replays
+```
+```js
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
+const expected = Buffer.from('v1=' + createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex'))
+const given = Buffer.from(signatureHeader)
+const valid = given.length === expected.length && timingSafeEqual(given, expected) && Math.abs(Date.now() / 1000 - timestamp) <= 300
+```

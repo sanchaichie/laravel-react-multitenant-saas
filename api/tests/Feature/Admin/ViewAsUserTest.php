@@ -294,6 +294,24 @@ describe('the session', function () {
         expect($this->billing->invoiceRequests())->toBeEmpty();
     });
 
+    it('hides webhook URLs and deliveries, which hold task content', function () {
+        $this->acme->members()->updateExistingPivot($this->user->id, ['role_id' => $this->acme->role(DefaultRole::Owner)->id]);
+        $endpoint = createWebhook($this->acme, ['url' => 'https://hooks.example.com/T0KEN']);
+
+        withFreshToken($this->token)->getJson("/api/webhooks/{$endpoint->id}")
+            ->assertOk()
+            ->assertJsonPath('data.url', null)
+            ->assertJsonPath('data.url_hidden', true)
+            ->assertJsonPath('data.host', 'hooks.example.com')
+            ->assertDontSee('T0KEN');
+        withFreshToken($this->token)->getJson("/api/webhooks/{$endpoint->id}/deliveries")
+            ->assertForbidden()
+            ->assertJsonPath('code', 'impersonation_hidden');
+        withFreshToken($this->token)->postJson("/api/webhooks/{$endpoint->id}/test")
+            ->assertForbidden()
+            ->assertJsonPath('code', 'impersonation_read_only');
+    });
+
     it('never reaches admin routes', function () {
         config(['app.debug' => false]);
 

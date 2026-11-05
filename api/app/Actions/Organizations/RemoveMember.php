@@ -5,6 +5,7 @@ namespace App\Actions\Organizations;
 use App\Actions\Audit\RecordAudit;
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
 use App\Enums\AuditAction;
+use App\Events\TasksUnassigned;
 use App\Models\Organization;
 use App\Models\Task;
 use App\Models\User;
@@ -41,11 +42,19 @@ class RemoveMember
 
             // Only this organization's tasks (the scope), with server-chosen values.
             // A builder update skips model events (and Auditable): the entry below
-            // counts them instead of one entry per task.
-            $this->currentOrganization->run($organization, function () use ($member, $role) {
-                $unassigned = Task::query()
+            // counts them instead of one entry per task. The rows are locked as they're
+            // read (FOR UPDATE re-checks assignee_id on rows changed meanwhile, in id
+            // order like single-task locks), so a task reassigned to someone else at the
+            // same moment keeps its new assignee. Webhooks hear about them in one event.
+            $this->currentOrganization->run($organization, function () use ($organization, $member, $role) {
+                $taskIds = Task::query()->where('assignee_id', $member->id)->orderBy('id')->lockForUpdate()->pluck('id');
+                $unassigned = $taskIds->isEmpty() ? 0 : Task::query()
                     ->where('assignee_id', $member->id)
                     ->update(['assignee_id' => null]);
+
+                if ($taskIds->isNotEmpty()) {
+                    TasksUnassigned::dispatch($organization->id, $taskIds->all());
+                }
 
                 $this->recordAudit->handle(
                     AuditAction::MemberRemoved,
