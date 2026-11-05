@@ -12,6 +12,7 @@ export type Permission =
   | 'ai_usage.view'
   | 'ai_budget.manage'
   | 'billing.manage'
+  | 'webhooks.manage'
 
 /** A role where something has one (you, a member, an invitation). Roles are per organization. */
 export interface Role {
@@ -505,3 +506,56 @@ export interface PlatformAuditLogEntry {
   created_at: string
 }
 
+
+/** What a webhook can subscribe to (App\\Enums\\WebhookEvent). `ping` is the test event, never subscribed to. */
+export type WebhookEvent = 'task.created' | 'task.updated' | 'task.deleted'
+
+export type WebhookDeliveryStatus = 'pending' | 'succeeded' | 'failed' | 'canceled'
+
+/** One webhook endpoint (WebhookEndpointResource). Never its secret. */
+export interface WebhookEndpoint {
+  id: number
+  /** null in a platform admin's support view (a URL's path can hold a token): show `host`. */
+  url: string | null
+  url_hidden: boolean
+  host: string
+  description: string | null
+  events: WebhookEvent[]
+  enabled: boolean
+  /** Why it's off: turned off by someone, or after too many failed deliveries. */
+  disabled_reason: 'manual' | 'failing' | null
+  disabled_at: string | null
+  last_delivery: { status: WebhookDeliveryStatus; event: string; created_at: string } | null
+  created_at: string
+}
+
+/** Create and roll-secret answers carry the secret, once, in meta. */
+export interface WebhookWithSecret {
+  data: WebhookEndpoint
+  meta: { secret: string }
+}
+
+export interface WebhookPayload {
+  url?: string
+  description?: string | null
+  events?: WebhookEvent[]
+  enabled?: boolean
+}
+
+/** One event sent to one endpoint (WebhookDeliveryResource). Payload and response are other people's data: render as text. */
+export interface WebhookDelivery {
+  id: number
+  /** The same on a resend, so receivers can dedupe. */
+  event_id: string
+  event: WebhookEvent | 'ping'
+  status: WebhookDeliveryStatus
+  attempts: number
+  response_status: number | null
+  response_body: string | null
+  error: string | null
+  duration_ms: number | null
+  next_attempt_at: string | null
+  delivered_at: string | null
+  created_at: string
+  payload: Record<string, unknown>
+}

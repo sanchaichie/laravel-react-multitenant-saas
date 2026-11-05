@@ -13,6 +13,7 @@
 - **Roles and permissions.** Owner, Admin and Member come built in, and each organization can create its own roles, such as a read-only Viewer.
 - **Payments.** A Free and a Pro plan, extra AI credits, card management and invoices, all handled by Stripe.
 - **Security.** Email verification, two-factor login, an audit log of who changed what, and data kept strictly separate between organizations.
+- **Webhooks.** Connect other tools: the app tells your CRM, chat or own system the moment a task changes.
 - **Platform admin.** The people running the product can look up users and organizations, help them, and see the app as a user sees it (read-only).
 
 ## What it does
@@ -92,6 +93,19 @@ Payments run entirely on Stripe's own secure pages. The app never sees card numb
 | ![Audit log](docs/screenshots/audit-log.png) | |
 | **Audit log**: who changed what, with old → new values | |
 
+### Webhooks (connecting other tools)
+A webhook tells another system about changes the moment they happen. For example, a new task appears in your CRM, or a message goes to your team chat when a task is done.
+- The owner adds the web address (URL) of the other system and picks which events to send: task created, updated or deleted.
+- Every message is **signed** with a secret key that only you and the receiving system know, so it can tell the message really came from this app.
+- A **delivery log** shows each message: what was sent, what the other system answered, and whether it worked. Any message can be sent again with one click, and a test message checks the connection.
+- If the other system is down, the app tries again up to 6 times over about 10 hours. After many failures in a row it pauses that webhook and says why on the page.
+- Only the owner manages webhooks (or a custom role given that permission), since they send task content outside the app. They can only point at public internet addresses, never at the app's own private network.
+
+| |
+|---|
+| ![Webhooks: a webhook's delivery log](docs/screenshots/webhooks.png) |
+| **A webhook's delivery log**: each message with what was sent and what came back, retries, and Resend |
+
 ### Your account
 From your name at the bottom of the sidebar:
 - Change your name, email or password. A new email address only takes effect once you confirm it from that inbox, and the old address gets a 7-day "undo" link in case someone else made the change.
@@ -135,6 +149,7 @@ The three roles every organization starts with. Owners can change Admin and Memb
 | Create and edit roles | ✓ | | |
 | Change the AI budget | ✓ | | |
 | Manage the plan, card and invoices | ✓ | | |
+| Manage webhooks | ✓ | | |
 
 Owners can do everything. An admin can't change or remove an owner.
 
@@ -198,6 +213,9 @@ Key settings in `api/.env`:
 | `ADMIN_TWO_FACTOR_TTL_MINUTES` | `720` | Platform admin pages need a two-factor code on this device within this many minutes |
 | `ADMIN_ACTION_TWO_FACTOR_TTL_MINUTES` | `15` | Platform admin actions (reset two-factor, sign out, suspend, make Owner, view as user) need a fresher one |
 | `ADMIN_IMPERSONATION_MINUTES` | `30` | How long a read-only "view as user" session lasts |
+| `WEBHOOK_DELIVERY_RETENTION_DAYS` | `30` | Days to keep the webhook delivery log |
+| `WEBHOOK_QUEUE`, `WEBHOOK_RATE_LIMIT_PER_MINUTE` | `webhooks`, `60` | The queue deliveries run on, and delivery attempts per organization per minute |
+| `WEBHOOKS_ALLOWED_PRIVATE_TARGETS` | empty | `host:port` pairs webhooks may reach on a private network (a local test receiver); only allowed with `APP_ENV=local` or `testing` |
 
 The rest is explained by comments in `api/.env.example`.
 
@@ -232,9 +250,10 @@ In two terminals:
 cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --port=8100 --no-reload
 cd web && npm run dev
 ```
-Emails (verification links, invitations) and AI summaries are queued. To have them sent and generated, also run a queue worker: `cd api && php artisan queue:work`. With `MAIL_MAILER=log` they're written to `api/storage/logs/laravel.log`, links included.
+Emails (verification links, invitations) and AI summaries are queued. To have them sent and generated, also run a queue worker: `cd api && php artisan queue:work --queue=default,webhooks`. With `MAIL_MAILER=log` they're written to `api/storage/logs/laravel.log`, links included.
 Every AI call is recorded in the `ai_usage` table (tokens and cost). To summarize tasks created before AI was set up: `php artisan ai:summarize-tasks` (`--organization=ID`, `--limit=50`, `--dry-run`); the worker then generates them.
-Daily cleanup (expired invitations, audit log entries past `AUDIT_RETENTION_DAYS`) runs from the Laravel scheduler: `cd api && php artisan schedule:work` locally, or a cron entry for `php artisan schedule:run` in production.
+Webhook deliveries are queued on their own `webhooks` queue, so a slow receiver never holds up emails: `php artisan queue:work --queue=default,webhooks` runs both (or give `webhooks` its own worker). Without a worker no webhook is sent; with `QUEUE_CONNECTION=sync` only the first attempt is.
+Daily cleanup (expired invitations, audit log entries past `AUDIT_RETENTION_DAYS`, webhook deliveries past `WEBHOOK_DELIVERY_RETENTION_DAYS`) runs from the Laravel scheduler: `cd api && php artisan schedule:work` locally, or a cron entry for `php artisan schedule:run` in production.
 Open http://localhost:5173 and create an account. Vite must stay on :5173, the only origin the API's CORS allows (`FRONTEND_URL`).
 
 The API answers on `http://localhost:8100/api`: every endpoint is listed in the [API reference](docs/api.md).

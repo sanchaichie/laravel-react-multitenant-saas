@@ -9,6 +9,7 @@ import {
   SparklesIcon,
   UserSearchIcon,
   UsersIcon,
+  WebhookIcon,
 } from 'lucide-react'
 import { NavLink, useMatch } from 'react-router'
 import {
@@ -47,6 +48,7 @@ const navigation: NavItem[] = [
   { to: '/ai-usage', label: 'AI usage', icon: SparklesIcon, permission: 'ai_usage.view' },
   // Also active on /billing/invoices (not an exact match, like Tasks).
   { to: '/billing', label: 'Billing', icon: CreditCardIcon, permission: 'billing.manage' },
+  { to: '/webhooks', label: 'Webhooks', icon: WebhookIcon, permission: 'webhooks.manage' },
 ]
 
 // For people who run the app (user.is_platform_admin), whatever the current organization.

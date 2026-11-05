@@ -25,6 +25,8 @@ import { SelectOrganizationPage } from '@/routes/SelectOrganizationPage'
 import { TaskDetailPage } from '@/routes/TaskDetailPage'
 import { TasksPage } from '@/routes/TasksPage'
 import { VerifyEmailPage } from '@/routes/VerifyEmailPage'
+import { WebhookDetailPage } from '@/routes/WebhookDetailPage'
+import { WebhooksPage } from '@/routes/WebhooksPage'
 
 // Routes without a `path` are layout routes: they render around their children
 // (through <Outlet>) without adding to the URL. That's how guards and layouts nest.
@@ -70,6 +72,8 @@ export const routes: RouteObject[] = [
               { path: 'ai-usage', element: <AiUsagePage /> },
               { path: 'billing', element: <BillingPage /> },
               { path: 'billing/invoices', element: <InvoicesPage /> },
+              { path: 'webhooks', element: <WebhooksPage /> },
+              { path: 'webhooks/:id', element: <WebhookDetailPage /> },
               { path: 'account', element: <AccountPage /> },
               // Platform admin pages, loaded only when one is opened (`lazy`: a separate
               // chunk, as Nuxt does for every page), so other people never download them.
