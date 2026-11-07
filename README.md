@@ -1,272 +1,339 @@
-# react-saas
+<div align="center">
 
-[![CI](https://github.com/dtrinidad-iv/react-saas/actions/workflows/ci.yml/badge.svg)](https://github.com/dtrinidad-iv/react-saas/actions/workflows/ci.yml)
+# 🧱 Laravel × React Multi-Tenant SaaS
 
-**A ready-made foundation for a team software product (SaaS).** Companies sign up, invite their people, and work together on tasks, with AI help built in. Accounts, teams, permissions, payments, security and an admin area are already done, so a new product can start from here and spend its time on what makes it different.
+### Your next B2B product, minus six months of plumbing.
 
-**Contents:** [At a glance](#at-a-glance) · [What it does](#what-it-does) · [Who can do what](#who-can-do-what) · [Security and privacy](#security-and-privacy) · [How it's built](#how-its-built) · [Setup](#setup-for-developers) · [Tests](#tests)
+Organizations, roles, tasks, Claude AI, Stripe billing, outgoing webhooks, 2FA, audit trails and an admin console.<br>
+A **Laravel 13** API and a **React 19** app that are tested, documented and ready to fork.
 
-## At a glance
-- **Teams (organizations).** Each customer company is its own organization, with its own members, data and bill. One person can belong to several, like Slack workspaces, and switch between them.
-- **Tasks.** The example feature: create, assign, prioritize, filter and track work.
-- **AI help.** Summaries of tasks, help writing them, and a private chat about any task. Each organization has a monthly AI spending limit.
-- **Roles and permissions.** Owner, Admin and Member come built in, and each organization can create its own roles, such as a read-only Viewer.
-- **Payments.** A Free and a Pro plan, extra AI credits, card management and invoices, all handled by Stripe.
-- **Security.** Email verification, two-factor login, an audit log of who changed what, and data kept strictly separate between organizations.
-- **Webhooks.** Connect other tools: the app tells your CRM, chat or own system the moment a task changes.
-- **Platform admin.** The people running the product can look up users and organizations, help them, and see the app as a user sees it (read-only).
+[![CI](https://github.com/sanchaichie/laravel-react-multitenant-saas/actions/workflows/ci.yml/badge.svg)](https://github.com/sanchaichie/laravel-react-multitenant-saas/actions/workflows/ci.yml)
+![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?logo=laravel&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Stripe](https://img.shields.io/badge/Stripe-Cashier-635BFF?logo=stripe&logoColor=white)
+![Claude](https://img.shields.io/badge/AI-Claude-D97757)
 
-## What it does
+<img src="docs/screenshots/tasks.png" alt="The tasks list with filters, search and sorting" width="860">
 
-### Sign up and log in
-- Anyone can create an account. They get their own organization straight away and an email to confirm their address.
-- Forgot your password? A reset link arrives by email.
-- People who belong to several organizations choose one after logging in.
+**[Tour](#-the-tour)** · **[Permissions](#-who-can-do-what)** · **[Security](#-security-model)** · **[Stack](#-stack)** · **[Get running](#-get-running)** · **[Tests](#-tests)** · **[API docs](docs/api.md)**
+
+</div>
+
+---
+
+## 🎯 The pitch
+
+You want to build *the thing*: the workflow, the insight, the product your customers actually pay for. Before you get there, every SaaS needs teams, invites, permissions, billing, security and support tooling, and every one of those is easy to get subtly wrong.
+
+This repo is all of that, finished. The demo feature is **Tasks** (assign, prioritize, track, with AI help). Swap it for your own domain and keep everything else.
+
+| 🏢 Multi-tenant | 🤖 AI-native | 💳 Monetized | 🔌 Connected | 🛡️ Hardened |
+|:-:|:-:|:-:|:-:|:-:|
+| Slack-style workspaces with fully isolated data | Summaries, writing help and chat, on a budget | Free/Pro plans, credit packs, invoices | Signed outgoing webhooks with a delivery log | 2FA, audit log, admin console |
+
+## 🗺 The tour
+
+### 1 · Getting in
+
+New users get their own organization on sign-up, plus an email to confirm their address. Forgotten passwords are reset by email link. People in several organizations choose one after logging in.
 
 | | |
 |---|---|
 | ![Log in](docs/screenshots/login.png) | ![Register with field errors](docs/screenshots/register-errors.png) |
-| **Log in** | **Register**: mistakes are shown next to the field they concern |
+| **Log in** | **Register**, with errors shown right next to the field |
 | ![Choose an organization](docs/screenshots/select-organization.png) | ![Verify your email](docs/screenshots/verify-email-banner.png) |
-| **Choose an organization** after logging in | **Verify your email** reminder, with a button to resend it |
+| **Pick a workspace** | **Verify your email** reminder, with a resend button |
 
-### Organizations and members
-- Create more organizations and switch between them from the sidebar.
-- Owners and admins invite people by email. The invitation link works whether or not the person already has an account, and expires after 7 days.
-- Owners and admins change a member's role or remove them. Anyone can leave.
-- An organization can never be left without an owner.
+### 2 · Your workspace
+
+Create organizations and hop between them from the sidebar. Owners and admins invite people by email: links work for new and existing accounts and expire after 7 days. Roles can be changed and members removed, anyone can leave, and an organization is never left without an owner.
 
 | | |
 |---|---|
 | ![Home](docs/screenshots/home.png) | ![Organization switcher](docs/screenshots/organization-switcher.png) |
-| **Dashboard**, with the sidebar showing the current organization and your role | **Organization switcher**: your organizations, and a button to create one |
+| **Dashboard**: the current organization and your role | **Switcher**: your organizations, and a button to create one |
 | ![Members](docs/screenshots/members.png) | ![Join an organization](docs/screenshots/join.png) |
-| **Members**: roles, invitations by email, pending invitations | **Invitation link**: one click to join |
+| **Members** and pending invitations | **Invitation link**: one click to join |
 
-### Tasks
-- Every task has a title, description, status (To do, In progress, Done), priority, due date and an assignee from the organization.
-- Filter the list by status, priority, assignee, overdue or a search word, and sort it. Filters live in the page address, so a filtered list can be bookmarked or shared.
-- Overdue tasks are flagged automatically.
-- Members edit the tasks they created or are assigned to. Owners and admins edit any task.
+### 3 · Tasks: the demo feature
+
+- Title, description, status (*To do → In progress → Done*), priority, due date and assignee
+- Filter by status, priority, assignee, overdue or keyword, and sort. **Filters live in the URL**, so a view can be bookmarked or shared
+- Overdue tasks are flagged automatically
+- Members edit what they created or were assigned. Owners and admins edit anything
 
 | | |
 |---|---|
 | ![Tasks](docs/screenshots/tasks.png) | ![A task](docs/screenshots/task-detail.png) |
 | **Tasks**: filters, search and sorting | **A task**: change its status in place, edit or delete it |
 
-### AI features
-Powered by Claude (Anthropic). AI only ever reads one task at a time, never another organization's data, and never changes anything on its own.
-- **Summaries.** A task with a description gets a short AI summary with key points. It stays a draft until someone approves it, edits it or rejects it, and it says when the task has changed since.
-- **Writing help.** "Improve with AI" in the task form rewrites the description (improve, expand or shorten). The suggestion appears word by word, and you accept it, try again or discard it.
-- **Ask AI.** A private chat about a task. Only you see your own conversation, not even the owner can read it. You can stop an answer or clear the chat.
-- **Spending limit.** Each organization has a monthly AI budget set by its plan. The owner can lower it, or set it to $0 to turn AI off. Once it's spent, AI waits until next month (or until credits are bought).
-- **AI usage page.** Shows owners and admins the month's AI calls and cost by feature, person and day.
+### 4 · AI copilots ✨
+
+Powered by **Claude**. Three rules: AI reads one task at a time, never touches another organization's data, and never acts on its own.
+
+| Copilot | What it does |
+|---|---|
+| **Summaries** | A short summary with key points, saved as a draft to approve, edit or reject, and flagged if the task changes later |
+| **Improve with AI** | Rewrites a description to improve, expand or shorten it, streamed word by word. Accept, retry or discard |
+| **Ask AI** | A private chat about a task. Not even the owner can read yours. Stop an answer or clear the chat anytime |
+| **Budget guard** | A monthly AI limit from the plan. Owners can lower it or set $0 to turn AI off. When it's spent, AI waits for next month or credits |
+| **Usage page** | The month's calls and cost by feature, person and day |
 
 | | |
 |---|---|
 | ![An AI task summary to review](docs/screenshots/task-summary.png) | ![AI writing help](docs/screenshots/task-writing-help.png) |
-| **AI summary**: a draft to approve, edit or reject | **AI writing help** in the task form |
+| **AI summary** awaiting review | **Improve with AI** inside the task form |
 | ![Task chat](docs/screenshots/task-chat.png) | ![AI usage](docs/screenshots/ai-usage.png) |
-| **Ask AI**: a private chat about a task | **AI usage**: the budget, and calls and cost by feature, person and day |
+| **Ask AI**: a private task chat | **AI usage** against the budget |
 
-### Billing
-Payments run entirely on Stripe's own secure pages. The app never sees card numbers.
-- **Plans:** Free, or **Pro**, which raises the monthly AI budget.
-- **AI credits:** one-time packs that add to this month's AI budget.
-- **Manage billing:** change the card or cancel in Stripe's customer portal.
-- **Invoices:** listed in the app, each opening Stripe's copy (with a PDF).
-- Only the owner manages billing (or a custom role given that permission).
+### 5 · Money 💰
+
+All payments happen on Stripe's hosted pages, so the app never sees a card number.
+
+- **Free** or **Pro** (Pro raises the monthly AI budget)
+- **AI credit packs**: one-time top-ups for this month
+- **Customer Portal** to change the card or cancel
+- **Invoices** listed in the app, each linking to Stripe's copy and PDF
+- Only owners manage billing, or a custom role given that permission
 
 | | |
 |---|---|
 | ![Billing](docs/screenshots/billing.png) | ![Invoices](docs/screenshots/invoices.png) |
-| **Billing**: the plan, the card, the AI budget, and credits to buy | **Invoices** from Stripe |
+| **Billing**: plan, card, AI budget, credits | **Invoices**, live from Stripe |
 
-### Roles and the audit log
-- **Roles.** Each organization can make its own roles from a list of permissions (for example a "Viewer" who can only read). Nobody can give out more than they have themselves, so an admin can never make themselves an owner.
-- **Audit log.** Owners and admins see who did what and when: tasks, members, invitations, roles, billing. Changes show old → new values. Filter by action, person and dates. Entries can't be edited, and are kept for a year by default.
+### 6 · Control and accountability
+
+**Custom roles** are assembled from a permission list, such as a read-only "Viewer". You can't hand out more than you have, so an admin can never promote themselves to owner.
+
+The **audit log** records who changed what (tasks, members, invitations, roles, billing) with old → new values, filters and immutable entries, kept for a year by default.
 
 | | |
 |---|---|
 | ![Roles](docs/screenshots/roles.png) | ![Edit a role](docs/screenshots/role-edit.png) |
-| **Roles**: what each role allows, and how many people have it | **Edit a role**: permissions grouped by area |
+| **Roles** and how many people hold each | **Edit a role**: permissions grouped by area |
 | ![Audit log](docs/screenshots/audit-log.png) | |
-| **Audit log**: who changed what, with old → new values | |
+| **Audit log** with old → new values | |
 
-### Webhooks (connecting other tools)
-A webhook tells another system about changes the moment they happen. For example, a new task appears in your CRM, or a message goes to your team chat when a task is done.
-- The owner adds the web address (URL) of the other system and picks which events to send: task created, updated or deleted.
-- Every message is **signed** with a secret key that only you and the receiving system know, so it can tell the message really came from this app.
-- A **delivery log** shows each message: what was sent, what the other system answered, and whether it worked. Any message can be sent again with one click, and a test message checks the connection.
-- If the other system is down, the app tries again up to 6 times over about 10 hours. After many failures in a row it pauses that webhook and says why on the page.
-- Only the owner manages webhooks (or a custom role given that permission), since they send task content outside the app. They can only point at public internet addresses, never at the app's own private network.
+### 7 · Webhooks 🔌
 
-| |
-|---|
-| ![Webhooks: a webhook's delivery log](docs/screenshots/webhooks.png) |
-| **A webhook's delivery log**: each message with what was sent and what came back, retries, and Resend |
+Push task events to your CRM, chat or own backend the moment they happen.
 
-### Your account
+- Owners add an endpoint URL and choose events: **task created, updated, deleted**
+- Every payload is **HMAC-signed**, so receivers can verify it came from you
+- A **delivery log** shows the request, the response and the outcome, with one-click resend and test pings
+- Failing endpoints are retried **up to 6 times over ~10 hours**, then auto-paused with a reason after repeated failures
+- **SSRF-safe**: only public internet targets, never the app's private network
+
+![Webhooks: a webhook's delivery log](docs/screenshots/webhooks.png)
+
+### 8 · Your account
+
 From your name at the bottom of the sidebar:
-- Change your name, email or password. A new email address only takes effect once you confirm it from that inbox, and the old address gets a 7-day "undo" link in case someone else made the change.
-- See every device you're signed in on, and sign any of them out.
-- **Two-factor login:** after your password, also enter a code from an authenticator app (Google Authenticator, 1Password, ...). You get one-time recovery codes in case you lose your phone.
-- Delete your account. Organizations where you're the only member are deleted with it. It's refused while other people still depend on you as the last owner.
+
+- Change your name, email or password. A new email only applies once confirmed, and the old inbox gets a 7-day **undo** link
+- See every signed-in device and sign any of them out
+- Turn on **two-factor login** with any authenticator app, with recovery codes for a lost phone
+- Delete your account. Solo organizations go with it, and it's refused while others depend on you as last owner
 
 | | |
 |---|---|
 | ![Account settings](docs/screenshots/account.png) | ![Two-factor setup](docs/screenshots/two-factor-setup.png) |
-| **Account settings** | **Two-factor setup**: scan the QR code, then enter a code |
+| **Account settings** | **Two-factor setup** |
 
-### Platform admin (for the team running the product)
-Not an organization role: only granted from the server's command line, and only to people with two-factor login turned on. Admins:
-- search all users and organizations (plan, AI budget, member counts; never task content or chats);
-- help a user: reset their two-factor login, sign them out everywhere, or suspend and unsuspend them;
-- make a member Owner of an organization whose owners are gone;
-- **view the app as a user**, read-only and for 30 minutes, to see exactly what they see. Private content stays hidden.
+### 9 · Platform admin 🧑‍✈️
 
-Every admin action needs a written reason and a fresh two-factor code, is recorded in a platform log, and the user is emailed. The organization's own audit log shows "Platform admin".
+For the team *running* the product. It's not an organization role: it's granted only from the server's command line, and only to people with 2FA on. Admins can:
+
+- search all users and organizations (plan, AI budget, counts; never task content or chats)
+- reset a user's 2FA, sign them out everywhere, or suspend and unsuspend them
+- make a member Owner of an organization whose owners are gone
+- **view the app as a user**, read-only for 30 minutes, with private content hidden
+
+Every action needs a written reason and a fresh 2FA code, lands in a platform log, and emails the user. The organization's own audit log shows it as "Platform admin".
 
 | | |
 |---|---|
 | ![Platform admin: users](docs/screenshots/admin-users.png) | ![Platform admin: an organization](docs/screenshots/admin-organization.png) |
-| **Users**: search everyone | **An organization**: plan, AI budget, counts and members |
+| **Users**: search everyone | **An organization**: plan, budget, counts, members |
 | ![Platform admin: actions on a user](docs/screenshots/admin-user-actions.png) | ![Viewing as a user](docs/screenshots/admin-view-as.png) |
-| **Actions** on a user, each with a reason | **View as user**: read-only, with private content hidden |
+| **Actions**, each with a reason | **View as user**: read-only |
 
-## Who can do what
-The three roles every organization starts with. Owners can change Admin and Member, or add their own roles.
+## 🔑 Who can do what
 
-| | Owner | Admin | Member |
+Every organization starts with three roles. Owners can reshape Admin and Member or add their own.
+
+| | 👑 Owner | 🛠 Admin | 🙋 Member |
 |---|:---:|:---:|:---:|
-| See all tasks | ✓ | ✓ | ✓ |
-| Create tasks, edit their own and those assigned to them | ✓ | ✓ | ✓ |
-| Edit and delete anyone's tasks | ✓ | ✓ | |
-| Use AI (summaries, writing help, chat) | ✓ | ✓ | ✓ |
-| Invite people, change roles, remove members | ✓ | ✓ | |
-| See the audit log | ✓ | ✓ | |
-| See AI usage and cost | ✓ | ✓ | |
-| Create and edit roles | ✓ | | |
-| Change the AI budget | ✓ | | |
-| Manage the plan, card and invoices | ✓ | | |
-| Manage webhooks | ✓ | | |
+| See all tasks | ✅ | ✅ | ✅ |
+| Create tasks; edit own and assigned | ✅ | ✅ | ✅ |
+| Edit and delete anyone's tasks | ✅ | ✅ | — |
+| Use AI (summaries, writing help, chat) | ✅ | ✅ | ✅ |
+| Invite, change roles, remove members | ✅ | ✅ | — |
+| See the audit log | ✅ | ✅ | — |
+| See AI usage and cost | ✅ | ✅ | — |
+| Create and edit roles | ✅ | — | — |
+| Change the AI budget | ✅ | — | — |
+| Manage plan, card and invoices | ✅ | — | — |
+| Manage webhooks | ✅ | — | — |
 
-Owners can do everything. An admin can't change or remove an owner.
+An admin can't change or remove an owner.
 
-## Security and privacy
-- **Each organization's data is walled off.** Users never pick which organization's data they see: the server decides from who they are, on every request. Automated tests check this for every feature.
-- **Logins are protected:** limits on attempts, optional two-factor login, emails for every important account change, with undo links, and "sign out everywhere".
-- **Payments never touch the app:** cards are entered on Stripe's pages only.
-- **AI keys stay on the server.** AI output is always a suggestion a person approves.
-- **Everything important is recorded:** the audit log for each organization, and a separate log of platform admin actions.
-- **Private stays private:** task chats are visible only to their author, and even a platform admin viewing as a user can't read task content.
+## 🛡 Security model
 
-## How it's built
-- **Server (`api/`):** Laravel (PHP) with a PostgreSQL database, Stripe through Laravel Cashier, Claude for AI. Tested with Pest.
-- **Web app (`web/`):** React 19 with TypeScript, styled with Tailwind and shadcn/ui. Tested with Vitest.
-- Every change runs the full test suite automatically on GitHub (the CI badge above).
-- Built one feature at a time from written plans ([docs/plans](docs/plans/README.md)). It's a React rebuild of the earlier [saas-starter](../saas-starter) (Laravel + Nuxt), with Tasks in place of Projects.
-- For developers: the [API reference](docs/api.md) lists every endpoint, and [CLAUDE.md](CLAUDE.md) has the code conventions.
+| Concern | How it's handled |
+|---|---|
+| **Tenant isolation** | The server decides which organization you're in, on every request. The client never says. Automated tests prove it for every feature. |
+| **Account takeover** | Login rate limits, optional 2FA, emails on every sensitive change with undo links, and "sign out everywhere". |
+| **Payments** | Cards are entered only on Stripe's pages. Plans change only through Stripe's signed webhook. |
+| **AI** | Keys never leave the server, output is always a human-approved suggestion, and spend is capped per organization. |
+| **Accountability** | A per-organization audit log, plus a separate platform log for admin activity. |
+| **Privacy** | Task chats are visible only to their author. Even "view as user" hides task content. |
+| **Outbound calls** | Webhooks are signed and limited to public addresses. |
 
-# Setup (for developers)
+## 🧰 Stack
 
-## Requirements
-PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; with nvm: `nvm use` in `web/`).
+| Layer | Tech |
+|---|---|
+| **API** (`api/`) | Laravel 13 · PHP 8.4 · PostgreSQL · Sanctum · Laravel Cashier (Stripe) · Claude · Pest |
+| **Web** (`web/`) | React 19 · TypeScript · Vite · React Router · TanStack Query · Tailwind 4 · shadcn/ui · Vitest + Testing Library |
+| **Ops** | GitHub Actions CI · queued jobs (emails, AI, webhooks) · Laravel Scheduler cleanup |
 
+Built feature by feature from written plans ([docs/plans](docs/plans/README.md)). It's the React sibling of [LaraNuxt SaaS](https://github.com/sanchaichie/laranuxt-saas) (Laravel + Nuxt), with Tasks where that one has Projects. Every endpoint is in the **[API reference](docs/api.md)**, and the code conventions are in [CLAUDE.md](CLAUDE.md).
 
-### 1. Databases
-Create two databases: one for the app, and one for the tests (the tests wipe theirs). Commands that wipe a database (`migrate:fresh`, `db:wipe`, ...) refuse to run unless its name ends in `_test`, so the app database can't be lost by accident.
+## 🚀 Get running
+
+**Prereqs:** PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; run `nvm use` in `web/`).
+
 ```bash
+# Databases: one for the app, one for tests (rebuilt every run)
 createdb -h 127.0.0.1 -U postgres react_saas
 createdb -h 127.0.0.1 -U postgres react_saas_test
-```
-(Or `CREATE DATABASE ...` from any Postgres client, if `createdb` isn't on your PATH.)
 
-### 2. API
-```bash
+# API
 cd api
 composer install
-cp .env.example .env        # then set DB_* to match your Postgres
+cp .env.example .env              # point DB_* at your Postgres
 php artisan key:generate
 php artisan migrate
+
+# Web
+cd ../web
+npm install
+cp .env.example .env              # VITE_API_BASE, if the API isn't on http://localhost:8100
 ```
-Key settings in `api/.env`:
+
+No `createdb` on your PATH? Run `CREATE DATABASE ...` from any Postgres client.
+
+**Launch:**
+
+```bash
+cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --port=8100 --no-reload
+cd api && php artisan queue:work --queue=default,webhooks     # emails, AI summaries, webhook deliveries
+cd web && npm run dev                                          # → http://localhost:5173
+```
+
+Open **http://localhost:5173** and create an account.
+
+> [!TIP]
+> Develop offline with `AI_PROVIDER=fake` (canned AI answers, no key, no cost) and `BILLING_PROVIDER=fake` (no Stripe calls).
+
+> [!WARNING]
+> Vite must stay on **:5173**, the only origin the API's CORS allows (`FRONTEND_URL`).
+
+> [!IMPORTANT]
+> Database-wiping commands (`migrate:fresh`, `db:wipe`, …) refuse to run unless the database name ends in `_test`.
+
+<details>
+<summary><b>⚙️ Background work, scheduler and AI backfill</b></summary>
+
+- **Queues.** Emails, AI summaries and webhook deliveries are queued. Webhooks have their own `webhooks` queue so a slow receiver never holds up email. Run `queue:work --queue=default,webhooks`, or give `webhooks` its own worker. Without a worker no webhook is sent; with `QUEUE_CONNECTION=sync` only the first attempt is.
+- **Emails locally.** With `MAIL_MAILER=log`, emails (links included) are written to `api/storage/logs/laravel.log`.
+- **Scheduler.** Daily cleanup removes expired invitations, audit entries past `AUDIT_RETENTION_DAYS` and webhook deliveries past `WEBHOOK_DELIVERY_RETENTION_DAYS`. Run `php artisan schedule:work` locally, or a cron entry for `schedule:run` in production.
+- **AI usage.** Every AI call is recorded in `ai_usage` (tokens and cost). To summarize tasks created before AI was set up, run `php artisan ai:summarize-tasks` (`--organization=ID`, `--limit=50`, `--dry-run`).
+
+</details>
+
+<details>
+<summary><b>🔧 Environment keys (<code>api/.env</code>)</b></summary>
 
 | Key | Default | What it's for |
 |---|---|---|
 | `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | `react_saas`, `postgres`, empty | The app database |
 | `FRONTEND_URL` | `http://localhost:5173` | The only origin CORS allows, and the base of email links |
-| `MAIL_MAILER` | `log` | Locally, emails are written to `storage/logs/laravel.log` |
-| `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries; `0` keeps them forever |
-| `AI_PROVIDER` | `anthropic` | `fake` for canned AI answers with no key and no cost (local work, e2e); `anthropic` calls Claude |
+| `MAIL_MAILER` | `log` | Locally, emails go to `storage/logs/laravel.log` |
+| `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit entries; `0` keeps them forever |
+| `AI_PROVIDER` | `anthropic` | `fake` for canned answers (local, e2e); `anthropic` calls Claude |
 | `ANTHROPIC_API_KEY` | empty | Needed with `AI_PROVIDER=anthropic`; stays on the server |
-| `AI_MODEL` | `claude-haiku-5-5` | The model for AI summaries |
+| `AI_MODEL` | `claude-haiku-5-5` | The model for AI features |
 | `AI_RATE_LIMIT_PER_MINUTE` | `5` | AI requests per organization per minute |
-| `AI_STREAM_TIMEOUT` | `120` | Seconds a streamed AI answer (writing help) may take |
-| `AI_MAX_CONCURRENT_STREAMS` | `3` | Streamed AI answers running at once on the server; keep it below the PHP workers (4) |
-| `AI_FAKE_STREAM_DELAY_MS` | `0` | With `AI_PROVIDER=fake`, milliseconds between streamed words (e2e runs use 60) |
-| `AI_MONTHLY_BUDGET_USD` | `5` | The Free plan's monthly AI budget in USD per organization (owners can set a lower one); `0` turns AI off |
-| `BILLING_PROVIDER` | `stripe` | `fake` for no Stripe calls (e2e; only with `APP_ENV=local` or `testing`) |
-| `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | empty | Stripe API keys and the webhook's signing secret (without it every webhook is refused) |
-| `STRIPE_PRICE_PRO`, `STRIPE_PRICE_CREDITS_10` | empty | Stripe price ids of the Pro plan (recurring) and the $10 AI credit pack (one-time); without one, it can't be bought |
-| `BILLING_PRO_AI_BUDGET_USD` | `50` | Pro's monthly AI budget in USD |
-| `ADMIN_TWO_FACTOR_TTL_MINUTES` | `720` | Platform admin pages need a two-factor code on this device within this many minutes |
-| `ADMIN_ACTION_TWO_FACTOR_TTL_MINUTES` | `15` | Platform admin actions (reset two-factor, sign out, suspend, make Owner, view as user) need a fresher one |
-| `ADMIN_IMPERSONATION_MINUTES` | `30` | How long a read-only "view as user" session lasts |
+| `AI_STREAM_TIMEOUT` | `120` | Seconds a streamed answer may take |
+| `AI_MAX_CONCURRENT_STREAMS` | `3` | Streams running at once; keep it below the PHP workers (4) |
+| `AI_FAKE_STREAM_DELAY_MS` | `0` | With the fake provider, delay between streamed words (e2e uses 60) |
+| `AI_MONTHLY_BUDGET_USD` | `5` | Free plan's monthly AI budget per organization; `0` turns AI off |
+| `BILLING_PROVIDER` | `stripe` | `fake` for no Stripe calls (only with `APP_ENV=local` or `testing`) |
+| `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | empty | Stripe keys and webhook signing secret (without it every webhook is refused) |
+| `STRIPE_PRICE_PRO`, `STRIPE_PRICE_CREDITS_10` | empty | Price ids for Pro (recurring) and the $10 credit pack (one-time) |
+| `BILLING_PRO_AI_BUDGET_USD` | `50` | Pro's monthly AI budget |
+| `ADMIN_TWO_FACTOR_TTL_MINUTES` | `720` | Admin pages need a 2FA code on this device within this window |
+| `ADMIN_ACTION_TWO_FACTOR_TTL_MINUTES` | `15` | Admin actions need a fresher one |
+| `ADMIN_IMPERSONATION_MINUTES` | `30` | Length of a "view as user" session |
 | `WEBHOOK_DELIVERY_RETENTION_DAYS` | `30` | Days to keep the webhook delivery log |
-| `WEBHOOK_QUEUE`, `WEBHOOK_RATE_LIMIT_PER_MINUTE` | `webhooks`, `60` | The queue deliveries run on, and delivery attempts per organization per minute |
-| `WEBHOOKS_ALLOWED_PRIVATE_TARGETS` | empty | `host:port` pairs webhooks may reach on a private network (a local test receiver); only allowed with `APP_ENV=local` or `testing` |
+| `WEBHOOK_QUEUE`, `WEBHOOK_RATE_LIMIT_PER_MINUTE` | `webhooks`, `60` | Delivery queue, and attempts per organization per minute |
+| `WEBHOOKS_ALLOWED_PRIVATE_TARGETS` | empty | `host:port` pairs allowed on a private network (local test receivers; `local`/`testing` only) |
 
-The rest is explained by comments in `api/.env.example`.
+More is documented in `api/.env.example`.
 
-#### Platform admins (optional)
-Platform admins are made from the command line only, and need two-factor turned on first (Account settings):
+</details>
+
+<details>
+<summary><b>🧑‍✈️ Making a platform admin</b></summary>
+
+Turn on two-factor in Account settings first, then:
+
 ```bash
 php artisan admin:grant you@example.com    # admin:revoke takes it away
 ```
-They then log in with a code from their authenticator app; the **Platform admin** group shows in the sidebar. Turning two-factor off ends admin until it's granted again.
 
-#### Stripe (optional)
-Billing works without Stripe until someone pays: the Billing page shows the Free plan, and Upgrade says the plan isn't available yet. To try it for real in Stripe's test mode:
-1. In the Stripe dashboard (test mode), create a product "Pro" with a monthly price, and one "AI credits" with a one-time $10 price. Put their `price_...` ids in `STRIPE_PRICE_PRO` and `STRIPE_PRICE_CREDITS_10`, and the API keys in `STRIPE_KEY` / `STRIPE_SECRET`.
-2. Turn on the Customer Portal (Settings → Billing → Customer portal), with plan switching off.
-3. Forward webhooks with the Stripe CLI and put the secret it prints in `STRIPE_WEBHOOK_SECRET`:
+Log in with an authenticator code and the **Platform admin** group appears in the sidebar. Turning 2FA off ends admin access until it's granted again.
+
+</details>
+
+<details>
+<summary><b>💳 Trying Stripe in test mode</b></summary>
+
+Without Stripe, the Billing page shows the Free plan and Upgrade says the plan isn't available yet. To try it for real:
+
+1. In the Stripe dashboard (test mode), create a **Pro** product with a monthly price and an **AI credits** product with a one-time $10 price. Put the `price_...` ids in `STRIPE_PRICE_PRO` / `STRIPE_PRICE_CREDITS_10`, and the API keys in `STRIPE_KEY` / `STRIPE_SECRET`.
+2. Enable the Customer Portal (Settings → Billing → Customer portal) with plan switching off.
+3. Forward webhooks and copy the printed secret into `STRIPE_WEBHOOK_SECRET`:
    ```bash
    stripe listen --forward-to localhost:8100/api/stripe/webhook \
      --events customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,customer.updated,customer.deleted,checkout.session.completed,checkout.session.async_payment_succeeded
    ```
-4. Upgrade with the card `4242 4242 4242 4242` (any future date, any CVC). In production, add the same events to a webhook endpoint in the dashboard, and set "If all retries for a payment fail" to cancel the subscription.
+4. Upgrade with `4242 4242 4242 4242` (any future date, any CVC).
 
-### 3. Web
+**Production:** add the same events to a dashboard webhook endpoint, and set "If all retries for a payment fail" to cancel the subscription.
+
+</details>
+
+## 🧪 Tests
+
 ```bash
-cd web
-npm install
-cp .env.example .env        # VITE_API_BASE, if the API isn't on http://localhost:8100
+cd api && php artisan test          # ~760 Pest tests on react_saas_test (rebuilt every run)
+cd api && vendor/bin/pint --test    # PHP style (vendor/bin/pint to fix)
+cd web && npm test                  # Vitest + Testing Library, API mocked
+cd web && npm run lint && npm run typecheck && npm run build
 ```
 
-## Run
-In two terminals:
-```bash
-cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --port=8100 --no-reload
-cd web && npm run dev
-```
-Emails (verification links, invitations) and AI summaries are queued. To have them sent and generated, also run a queue worker: `cd api && php artisan queue:work --queue=default,webhooks`. With `MAIL_MAILER=log` they're written to `api/storage/logs/laravel.log`, links included.
-Every AI call is recorded in the `ai_usage` table (tokens and cost). To summarize tasks created before AI was set up: `php artisan ai:summarize-tasks` (`--organization=ID`, `--limit=50`, `--dry-run`); the worker then generates them.
-Webhook deliveries are queued on their own `webhooks` queue, so a slow receiver never holds up emails: `php artisan queue:work --queue=default,webhooks` runs both (or give `webhooks` its own worker). Without a worker no webhook is sent; with `QUEUE_CONNECTION=sync` only the first attempt is.
-Daily cleanup (expired invitations, audit log entries past `AUDIT_RETENTION_DAYS`, webhook deliveries past `WEBHOOK_DELIVERY_RETENTION_DAYS`) runs from the Laravel scheduler: `cd api && php artisan schedule:work` locally, or a cron entry for `php artisan schedule:run` in production.
-Open http://localhost:5173 and create an account. Vite must stay on :5173, the only origin the API's CORS allows (`FRONTEND_URL`).
+GitHub Actions runs all of it on every push to `main` and every PR. To keep `main` green, require the `API (Pint, Pest)` and `Web (lint, typecheck, test, build)` checks under Settings → Branches.
 
-The API answers on `http://localhost:8100/api`: every endpoint is listed in the [API reference](docs/api.md).
+## 🤖 Claude Code inside
 
-## Tests
-```bash
-cd api && php artisan test     # Pest, on react_saas_test (rebuilt on every run)
-cd api && vendor/bin/pint --test   # PHP code style (vendor/bin/pint to fix)
-cd web && npm test             # Vitest + Testing Library, API calls mocked
-```
-`npm run lint`, `npm run typecheck` and `npm run build` check the rest of the web app.
+The repo ships its [Claude Code](https://claude.com/claude-code) setup in `.claude/` and `.mcp.json`: skills for planning (`/plan-task`), building tenant features (`/tenant-feature`), verifying (`/verify`), end-to-end checks (`/e2e-smoke`) and shipping (`/ship-plan`), plus reviewer subagents and hooks that block destructive database commands. Conventions are in [CLAUDE.md](CLAUDE.md).
 
-GitHub Actions runs all of these on every push to `main` and every pull request (`.github/workflows/ci.yml`). To stop a red run from being merged, require the `API (Pint, Pest)` and `Web (lint, typecheck, test, build)` checks under Settings → Branches → branch protection for `main`.
-
-## Working with Claude Code
-The repo ships its Claude Code setup in `.claude/` and `.mcp.json`: skills for planning, verifying, e2e checks and shipping, reviewer subagents, and hooks that block destructive database commands. [CLAUDE.md](CLAUDE.md) has the conventions.
+<div align="center">
+<sub>Laravel · React · Claude · Stripe · <a href="https://github.com/sanchaichie/laranuxt-saas">Prefer Nuxt? See LaraNuxt SaaS →</a></sub>
+</div>
