@@ -5,7 +5,7 @@
 ### Your next B2B product, minus six months of plumbing.
 
 Organizations, roles, tasks, Claude AI, Stripe billing, outgoing webhooks, 2FA, audit trails and an admin console.<br>
-A **Laravel 13** API and a **React 19** app that are tested, documented and ready to fork.
+A **Laravel 13** API with two frontends to choose from, a **React 19** SPA and a **Next.js 16** app, tested, documented and ready to fork.
 
 [![CI](https://github.com/sanchaichie/laravel-react-multitenant-saas/actions/workflows/ci.yml/badge.svg)](https://github.com/sanchaichie/laravel-react-multitenant-saas/actions/workflows/ci.yml)
 ![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?logo=laravel&logoColor=white)
@@ -13,12 +13,13 @@ A **Laravel 13** API and a **React 19** app that are tested, documented and read
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![Stripe](https://img.shields.io/badge/Stripe-Cashier-635BFF?logo=stripe&logoColor=white)
 ![Claude](https://img.shields.io/badge/AI-Claude-D97757)
 
 <img src="docs/screenshots/tasks.png" alt="The tasks list with filters, search and sorting" width="860">
 
-**[Tour](#-the-tour)** · **[Permissions](#-who-can-do-what)** · **[Security](#-security-model)** · **[Stack](#-stack)** · **[Get running](#-get-running)** · **[Tests](#-tests)** · **[API docs](docs/api.md)**
+**[Tour](#-the-tour)** · **[React or Next.js](#-react-or-nextjs)** · **[Permissions](#-who-can-do-what)** · **[Security](#-security-model)** · **[Stack](#-stack)** · **[Get running](#-get-running)** · **[Tests](#-tests)** · **[API docs](docs/api.md)**
 
 </div>
 
@@ -161,6 +162,25 @@ Every action needs a written reason and a fresh 2FA code, lands in a platform lo
 | ![Platform admin: actions on a user](docs/screenshots/admin-user-actions.png) | ![Viewing as a user](docs/screenshots/admin-view-as.png) |
 | **Actions**, each with a reason | **View as user**: read-only |
 
+## ⚛️ React or Next.js
+
+The same product is built twice on the same Laravel API, so you can pick the frontend that suits your team:
+
+| | **React SPA** (`web/`) | **Next.js app** (`next/`) |
+|---|---|---|
+| Rendering | In the browser (Vite) | On the server (App Router, Server Components) |
+| Data | TanStack Query calls the API from the browser | Pages fetch on the server; forms post to Server Actions |
+| Login token | Bearer token in `localStorage` | httpOnly cookie the browser's scripts can't read; a built-in `/api` proxy adds it to calls |
+| UI kit | shadcn/ui (Radix) | [TailAdmin](https://github.com/TailAdmin/free-nextjs-admin-dashboard) (Base UI), MIT |
+| Covers | Everything in the tour | Sign-up, log in (with 2FA), password reset, email verification, organization switching, a **Tasks overview** with charts, and Tasks (list, filters, create, edit, delete) |
+
+One setting chooses which one runs, and where the API's emails link to: `FRONTEND_URL` in `api/.env` (`http://localhost:5173` for React, `http://localhost:3100` for Next.js). The Next.js app is growing feature by feature; email links for pages it doesn't have yet (invitations, email change) say to open them in the React app.
+
+<p align="center">
+  <img src="docs/screenshots/next-overview.png" alt="The Next.js app's Tasks overview: counts by status, overdue and assigned to me, with status and priority charts" width="860"><br>
+  <img src="docs/screenshots/next-tasks.png" alt="The Next.js app's task list with filters in TailAdmin's layout" width="860">
+</p>
+
 ## 🔑 Who can do what
 
 Every organization starts with three roles. Owners can reshape Admin and Member or add their own.
@@ -199,13 +219,14 @@ An admin can't change or remove an owner.
 |---|---|
 | **API** (`api/`) | Laravel 13 · PHP 8.4 · PostgreSQL · Sanctum · Laravel Cashier (Stripe) · Claude · Pest |
 | **Web** (`web/`) | React 19 · TypeScript · Vite · React Router · TanStack Query · Tailwind 4 · shadcn/ui · Vitest + Testing Library |
+| **Next** (`next/`) | Next.js 16 (App Router) · React 19 · Server Components and Server Actions · TailAdmin (Base UI) · Tailwind 4 · ApexCharts · Vitest |
 | **Ops** | GitHub Actions CI · queued jobs (emails, AI, webhooks) · Laravel Scheduler cleanup |
 
 Built feature by feature from written plans ([docs/plans](docs/plans/README.md)). It's the React sibling of [LaraNuxt SaaS](https://github.com/sanchaichie/laranuxt-saas) (Laravel + Nuxt), with Tasks where that one has Projects. Every endpoint is in the **[API reference](docs/api.md)**, and the code conventions are in [CLAUDE.md](CLAUDE.md).
 
 ## 🚀 Get running
 
-**Prereqs:** PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc`; run `nvm use` in `web/`).
+**Prereqs:** PHP 8.4+, Composer, PostgreSQL, Node 22 (`web/.nvmrc` and `next/.nvmrc`; run `nvm use`).
 
 ```bash
 # Databases: one for the app, one for tests (rebuilt every run)
@@ -237,6 +258,17 @@ cd web && npm run dev                                          # → http://loca
 
 Open **http://localhost:5173** and create an account.
 
+**Or run the Next.js frontend** instead of (or next to) the React one:
+
+```bash
+cd next
+npm install
+cp .env.example .env.local        # API_BASE_URL, if the API isn't on http://localhost:8100
+npm run dev                       # → http://localhost:3100
+```
+
+It calls the API from its own server, so it needs no CORS entry. In production, put the Next.js server's address in the API's `TRUSTED_PROXIES` and name your reverse proxy's client-IP header in `CLIENT_IP_HEADER` (`next/.env.example`), so rate limits and the device list see each user's own IP. For email links (verification, password reset) to open it, set `FRONTEND_URL=http://localhost:3100` in `api/.env`.
+
 > [!TIP]
 > Develop offline with `AI_PROVIDER=fake` (canned AI answers, no key, no cost) and `BILLING_PROVIDER=fake` (no Stripe calls).
 
@@ -262,7 +294,8 @@ Open **http://localhost:5173** and create an account.
 | Key | Default | What it's for |
 |---|---|---|
 | `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | `react_saas`, `postgres`, empty | The app database |
-| `FRONTEND_URL` | `http://localhost:5173` | The only origin CORS allows, and the base of email links |
+| `FRONTEND_URL` | `http://localhost:5173` | The only origin CORS allows, and the base of email links (`http://localhost:3100` for the Next.js app) |
+| `TRUSTED_PROXIES` | empty | Addresses allowed to pass the client IP (`X-Forwarded-For`): the Next.js app's server. Never `*` |
 | `MAIL_MAILER` | `log` | Locally, emails go to `storage/logs/laravel.log` |
 | `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit entries; `0` keeps them forever |
 | `AI_PROVIDER` | `anthropic` | `fake` for canned answers (local, e2e); `anthropic` calls Claude |
@@ -326,9 +359,11 @@ cd api && php artisan test          # ~760 Pest tests on react_saas_test (rebuil
 cd api && vendor/bin/pint --test    # PHP style (vendor/bin/pint to fix)
 cd web && npm test                  # Vitest + Testing Library, API mocked
 cd web && npm run lint && npm run typecheck && npm run build
+cd next && npm test                 # Vitest: the /api proxy, Server Actions, pages
+cd next && npm run lint && npm run typecheck && npm run build
 ```
 
-GitHub Actions runs all of it on every push to `main` and every PR. To keep `main` green, require the `API (Pint, Pest)` and `Web (lint, typecheck, test, build)` checks under Settings → Branches.
+GitHub Actions runs all of it on every push to `main` and every PR. To keep `main` green, require the `API (Pint, Pest)`, `Web (lint, typecheck, test, build)` and `Next (lint, typecheck, test, build)` checks under Settings → Branches.
 
 ## 🤖 Claude Code inside
 
