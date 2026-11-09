@@ -23,6 +23,7 @@ use App\Webhooks\DnsHostResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\ConfigurationUrlParser;
@@ -98,6 +99,27 @@ class AppServiceProvider extends ServiceProvider
      * an .env.testing silently uses .env. The name is the one the connection really
      * uses: a DB_URL wins over DB_DATABASE.
      */
+    /**
+     * Take the client's IP from X-Forwarded-For, but only on requests coming from
+     * these addresses (the Next.js server). Only that header: a proxy can't change
+     * the host or scheme the API sees. "*" is refused, since every client could
+     * then choose its own IP and slip past per-IP rate limits.
+     *
+     * @param  list<string>  $proxies
+     */
+    public static function trustProxies(array $proxies): void
+    {
+        if ($proxies === []) {
+            return;
+        }
+        if (array_intersect($proxies, ['*', '**']) !== []) {
+            throw new LogicException('TRUSTED_PROXIES must list addresses, never "*".');
+        }
+
+        TrustProxies::at($proxies);
+        TrustProxies::withHeaders(Request::HEADER_X_FORWARDED_FOR);
+    }
+
     public static function guardDestructiveDatabaseCommands(): void
     {
         $config = (array) config('database.connections.'.config('database.default'));
@@ -113,6 +135,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         self::guardDestructiveDatabaseCommands();
+        self::trustProxies(config('app.trusted_proxies'));
 
         // The fake gateway never charges anyone, and with fake_complete_checkout it hands
         // out Pro for free: only on a developer's machine and in tests, never on a server

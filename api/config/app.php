@@ -68,6 +68,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Servers allowed to tell the API who the client is (X-Forwarded-For): the
+    | Next.js app (next/) calls the API from its own server, so without this every
+    | user would share its IP address (one rate-limit bucket for everyone, and its
+    | address in the device list and audit log). Exact IPs or CIDR ranges, never
+    | "*" (anyone could then pick their own IP); empty trusts nobody.
+    |
+    */
+
+    'trusted_proxies' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('TRUSTED_PROXIES', '')),
+    ))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
