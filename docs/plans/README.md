@@ -29,3 +29,4 @@ Rows marked **Not planned yet** are the roadmap; `/plan-task` writes their file 
 | 17 | [Platform admin and view as user](17-platform-admin-view-as-user.md) | Done | 25, 26, 27 |
 | 18 | [Outgoing webhooks](18-outgoing-webhooks.md) | Done | (automation conventions) |
 | 19 | [Next.js frontend, chosen at run time](19-nextjs-frontend.md) | Done | (none) |
+| 20 | [AI task chat and writing help in the Next.js app](20-next-ai-chat-writing-help.md) | Done | 15, 16 |
