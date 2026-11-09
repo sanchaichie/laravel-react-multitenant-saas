@@ -2,9 +2,11 @@
 # Runs the API and the built web app on spare ports for end-to-end checks.
 # Never uses :8100/:5173 (the developer's own servers) or saas-starter's :8000/:3000 and :8011/:3011.
 #
-# Usage: servers.sh start [--mail] | stop | status | cleanup [prefix] | errors | webhooks
-#   start    build web (if web/ exists) into web/dist-e2e with the API URL baked in (skip with SKIP_BUILD=1), start API :8112 (4 workers,
-#            for streaming) and `vite preview` on :5112, wait until both answer.
+# Usage: [FRONTEND=react|next] servers.sh start [--mail] | stop | status | cleanup [prefix] | errors | webhooks
+#   start    build the frontend and serve it on :5112, start the API on :8112 (4 workers, for streaming), wait until both answer.
+#            FRONTEND=react (default): web/ built into web/dist-e2e with the API URL baked in, served by `vite preview`.
+#            FRONTEND=next: next/ built into next/.next-e2e, served by `next start` (it calls the API from its server, API_BASE_URL).
+#            Skip the build with SKIP_BUILD=1.
 #            Records where laravel.log ends, so errors and mail.sh only read this run.
 #            --mail: send emails straight away (sync queue) to the log, with links to :5112; read them with mail.sh
 #            Billing uses the fake provider with self-completing checkouts (BILLING_PROVIDER=fake, BILLING_FAKE_COMPLETE_CHECKOUT=true):
@@ -28,6 +30,12 @@ log="$root/api/storage/logs/laravel.log"
 API_PORT=8112
 WEB_PORT=5112
 HOOK_PORT=8113
+FRONTEND="${FRONTEND:-react}"
+case "$FRONTEND" in
+  react) front_dir=web ;;
+  next) front_dir=next ;;
+  *) echo "FRONTEND must be react or next, got: $FRONTEND" >&2; exit 1 ;;
+esac
 mkdir -p "$state"
 
 find_php() {
@@ -79,8 +87,8 @@ stop() {
   for port in $API_PORT $WEB_PORT $HOOK_PORT; do
     for pid in $(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null); do
       case "$(ps -o comm= -p "$pid")" in
-        *php*|*node*) kill "$pid" && echo "stopped :$port ($pid)" ;;
-        *) echo "left :$port alone: pid $pid is not php/node" >&2 ;;
+        *php*|*node*|*next-server*) kill "$pid" && echo "stopped :$port ($pid)" ;;
+        *) echo "left :$port alone: pid $pid is not php, node or next-server" >&2 ;;
       esac
     done
   done
@@ -104,14 +112,20 @@ start() {
 
   # Before plan 03 there's no web/: start the API alone, as verify.sh skips that side.
   local has_web=0
-  [ -f "$root/web/package.json" ] && has_web=1
+  [ -f "$root/$front_dir/package.json" ] && has_web=1
 
   [ "$has_web" = 1 ] && use_node
   if [ "$has_web" = 1 ] && [ "${SKIP_BUILD:-0}" != 1 ]; then
-    echo "building web..."
-    # Vite bakes VITE_* into the bundle at build time, so the e2e build gets its own folder (npm run build keeps dist/).
-    (cd "$root/web" && VITE_API_BASE="http://localhost:$API_PORT" npx vite build --outDir dist-e2e --emptyOutDir >"$state/build.log" 2>&1) \
-      || { echo "web build failed, see $state/build.log" >&2; exit 1; }
+    echo "building $front_dir..."
+    if [ "$FRONTEND" = next ]; then
+      # Its own build folder, so the developer's `next dev`/`next build` output is untouched.
+      (cd "$root/next" && NEXT_DIST_DIR=.next-e2e npx next build >"$state/build.log" 2>&1) \
+        || { echo "next build failed, see $state/build.log" >&2; exit 1; }
+    else
+      # Vite bakes VITE_* into the bundle at build time, so the e2e build gets its own folder (npm run build keeps dist/).
+      (cd "$root/web" && VITE_API_BASE="http://localhost:$API_PORT" npx vite build --outDir dist-e2e --emptyOutDir >"$state/build.log" 2>&1) \
+        || { echo "web build failed, see $state/build.log" >&2; exit 1; }
+    fi
   fi
 
   # mail.sh refuses to run without this marker, so a run started without --mail fails loudly instead of finding no emails.
@@ -132,7 +146,10 @@ start() {
       env "${api_env[@]}" nohup "$php" artisan queue:work --queue=e2e,e2e-webhooks --sleep=1 --tries=1 >"$state/worker.log" 2>&1 &
       echo $! >"$state/worker.pid") </dev/null >/dev/null 2>&1
   fi
-  if [ "$has_web" = 1 ]; then
+  if [ "$has_web" = 1 ] && [ "$FRONTEND" = next ]; then
+    (cd "$root/next" && NEXT_DIST_DIR=.next-e2e API_BASE_URL="http://127.0.0.1:$API_PORT" nohup npx next start -H 127.0.0.1 -p "$WEB_PORT" \
+      >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
+  elif [ "$has_web" = 1 ]; then
     (cd "$root/web" && nohup npx vite preview --outDir dist-e2e --host 127.0.0.1 --port "$WEB_PORT" --strictPort \
       >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
   fi
@@ -143,7 +160,7 @@ start() {
   if [ "$has_web" = 1 ]; then wait_for "http://127.0.0.1:$WEB_PORT/login" || { stop; exit 1; }; fi
   echo "API  http://localhost:$API_PORT   (log: $state/api.log)"
   if [ "$has_web" = 1 ]; then
-    echo "Web  http://localhost:$WEB_PORT   (log: $state/web.log)"
+    echo "Web  http://localhost:$WEB_PORT   ($FRONTEND frontend; log: $state/web.log)"
   else
     echo "Web  skipped (no web/ yet)"
   fi

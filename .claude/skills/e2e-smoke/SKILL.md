@@ -14,7 +14,9 @@ Flow to check: $ARGUMENTS
 .claude/skills/e2e-smoke/servers.sh start           # builds web first (VITE_API_BASE baked in); SKIP_BUILD=1 to reuse web/dist-e2e
 .claude/skills/e2e-smoke/servers.sh start --mail    # same, and emails are sent at once (sync queue) to the log, with links to :5112
 .claude/skills/e2e-smoke/servers.sh webhooks        # what the webhook receiver (http://127.0.0.1:8113/hook, /fail = 500) got: JSON lines
+FRONTEND=next .claude/skills/e2e-smoke/servers.sh start --mail   # the Next.js app (next/) on :5112 instead of the React one
 ```
+- `FRONTEND=next` builds `next/` into `next/.next-e2e` and serves it with `next start` (`API_BASE_URL` points it at :8112). Email links go to :5112 either way. The Next app covers auth, organization switching, the overview and Tasks only.
 - Use `--mail` whenever the flow sends email (verification, password reset, invitations). It doesn't need the developer's `queue:work`, and doesn't touch `.env`. It runs **every** queued job inline (AI summaries, webhooks too), so retries and backoff aren't exercised, and a failing job shows as a 500 on the request. With it an AI summary is already a draft when the task page opens (no "Generating…" step).
 - The API always runs with `BILLING_PROVIDER=fake` and `BILLING_FAKE_COMPLETE_CHECKOUT=true`: "Upgrade to Pro" and "Buy" on the billing page come straight back as paid (Pro, or the credits, audited as from Stripe), and Invoices lists one fake invoice for each. Nothing reaches Stripe. Webhooks can still be posted with curl to check the signature check (any signature is wrong: there's no secret).
 - The API always runs with `AI_PROVIDER=fake`: canned AI answers, no key, nothing spent. Streamed answers (writing help) arrive word by word, 60 ms apart (`AI_FAKE_STREAM_DELAY_MS=60`), so you can watch them and press Stop. Without `--mail`, jobs go to the `e2e` queue, so your own `queue:work` (maybe with a real key) never runs them; process them with `cd api && AI_PROVIDER=fake php artisan queue:work --queue=e2e`.
@@ -35,7 +37,7 @@ curl -s -X POST localhost:8112/api/register -H 'Accept: application/json' -H 'Co
 ## 3. Check the flow
 - **API (curl):** the happy path, the permission cases (`can` flags, 403 for the wrong role), and that user A gets **404** for B's records on read, update and delete and never sees them in lists or search.
 - **Browser (Playwright MCP, `mcp__playwright__*`):**
-  - Store a token (in `localStorage`) by logging in through the `/login` form at `http://localhost:5112`.
+  - Log in through the `/login` form at `http://localhost:5112` (React keeps the token in `localStorage`; Next keeps it in the httpOnly `session` cookie).
   - Log out is in the account menu (top right, or the sidebar footer): open the menu first, then its items appear in the snapshot.
   - Click through the flow and take screenshots of the key states: list, empty, form errors, detail, not found.
   - Read the console messages and report any errors.

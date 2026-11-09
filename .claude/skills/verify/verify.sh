@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs every check a task needs before it's called done.
-# Usage: verify.sh [api|web|all]   (default: all)
+# Usage: verify.sh [api|web|next|all]   (default: all)
 set -uo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -44,7 +44,7 @@ use_node() {
   echo "node    $(node --version)"
 }
 
-# A side that doesn't exist yet (api/ before plan 02, web/ before plan 03) is skipped, not failed.
+# A side that doesn't exist yet (api/ before plan 02, web/ before plan 03, next/ before plan 19) is skipped, not failed.
 if [ "$target" = api ] || [ "$target" = all ]; then
   if [ ! -f "$root/api/artisan" ]; then
     echo "skip    api (no api/ yet)"
@@ -70,6 +70,19 @@ if [ "$target" = web ] || [ "$target" = all ]; then
       step "test" npm test --silent
     fi
     step "build" npm run build --silent
+  fi
+fi
+
+if [ "$target" = next ] || [ "$target" = all ]; then
+  if [ ! -f "$root/next/package.json" ]; then
+    echo "skip    next (no next/ yet)"
+  else
+    use_node
+    cd "$root/next"
+    step "next-lint" npm run lint --silent
+    step "next-typecheck" npm run typecheck --silent
+    step "next-test" npm test --silent
+    step "next-build" npm run build --silent
   fi
 fi
 
