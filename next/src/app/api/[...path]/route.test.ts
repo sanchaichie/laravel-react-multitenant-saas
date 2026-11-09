@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { describe, expect, it, vi } from 'vitest'
-import { json, mockFetch } from '@/test/next'
+import { json, manualStream, mockFetch, sseEvent } from '@/test/next'
 import { GET, POST } from './route'
 
 function call(handler: typeof GET, url: string, init: ConstructorParameters<typeof NextRequest>[1] = {}, path: string[] = ['tasks']) {
@@ -159,5 +159,43 @@ describe('the client IP', () => {
     await call(GET, 'http://localhost/api/tasks', { headers: { 'x-forwarded-for': '6.6.6.6' } })
 
     expect(new Headers(calls[0].init.headers).get('x-forwarded-for')).toBeNull()
+  })
+})
+
+describe('streamed answers', () => {
+  it('passes an event stream through chunk by chunk, marked no-transform', async () => {
+    const stream = manualStream()
+    mockFetch({ 'POST /api/tasks/1/chat': (init) => stream.respond(init) })
+
+    const response = await call(POST, 'http://localhost/api/tasks/1/chat', {
+      method: 'POST',
+      body: '{"message":"Hi"}',
+      headers: { cookie: 'session=t', 'content-type': 'application/json' },
+    }, ['tasks', '1', 'chat'])
+
+    expect(response.headers.get('content-type')).toBe('text/event-stream')
+    expect(response.headers.get('cache-control')).toBe('private, no-store, no-transform')
+    // The first event arrives while the upstream is still open: nothing waits for the end.
+    const reader = response.body!.getReader()
+    stream.handle.send(sseEvent('delta', { text: 'Hello' }))
+    const first = await reader.read()
+    expect(new TextDecoder().decode(first.value)).toContain('Hello')
+    stream.handle.close()
+  })
+
+  it('stops the call to Laravel when the browser goes away', async () => {
+    const stream = manualStream()
+    mockFetch({ 'POST /api/tasks/1/chat': (init) => stream.respond(init) })
+    const browser = new AbortController()
+
+    await call(POST, 'http://localhost/api/tasks/1/chat', {
+      method: 'POST',
+      body: '{}',
+      headers: { cookie: 'session=t' },
+      signal: browser.signal,
+    }, ['tasks', '1', 'chat'])
+    browser.abort()
+
+    expect(stream.handle.aborted).toBe(true)
   })
 })

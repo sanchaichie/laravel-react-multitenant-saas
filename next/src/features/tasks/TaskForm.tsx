@@ -1,9 +1,7 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 import type { Member, Task } from '@shared/types/api'
 import { FormMessage } from '@/components/FormMessage'
 import { TextField } from '@/components/TextField'
@@ -12,15 +10,22 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
+import { clientApiEvents } from '@/lib/clientApi'
 import { createTask, type TaskFormState, updateTask } from './actions'
 import { TASK_PRIORITIES, TASK_STATUSES, priorityLabel, statusLabel } from './filters'
 import { toValues, UNASSIGNED } from './schema'
+import { TaskWritingHelp } from './TaskWritingHelp'
 
 interface TaskFormProps {
   organizationId: number
   members: Member[]
   /** The task to edit; none to create one. */
   task?: Task
+  /**
+   * Show "Improve with AI". The page decides, as the API will: editing,
+   * task.can.write_with_ai; creating, ai.use and tasks.create from a verified email.
+   */
+  writingHelp?: boolean
 }
 
 /**
@@ -29,21 +34,23 @@ interface TaskFormProps {
  * success the action redirects to the task, otherwise its answer (field errors)
  * comes back through useActionState.
  */
-export function TaskForm({ organizationId, members, task }: TaskFormProps) {
-  const router = useRouter()
+export function TaskForm({ organizationId, members, task, writingHelp = false }: TaskFormProps) {
   const action = task ? updateTask.bind(null, organizationId, task.id, toValues(task)) : createTask.bind(null, organizationId)
   const [state, formAction, isPending] = useActionState<TaskFormState, FormData>(action, {})
   const values = state.values ?? toValues(task)
+  // The fields are uncontrolled (posted to the action): writing help reads them, and
+  // writes the accepted text, through these DOM refs instead of React state.
+  const formRef = useRef<HTMLFormElement>(null)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
 
-  // Another tab switched organization: this form belongs to the old one. Reload
-  // the page on the server, which renders the new organization's (a refetch ↔ invalidateQueries).
+  // Another tab switched organization: this form belongs to the old one. The shared
+  // handler goes to /tasks and re-renders it on the server for the new organization
+  // (a refetch ↔ invalidateQueries), then says so.
   useEffect(() => {
     if (state.organizationChanged) {
-      toast.info('Your organization changed', { description: 'It was switched in another tab.' })
-      router.replace('/tasks')
-      router.refresh()
+      clientApiEvents.onOrganizationChanged()
     }
-  }, [state.organizationChanged, router])
+  }, [state.organizationChanged])
 
   // The current assignee stays choosable even if they're not in the list (they left).
   const keepsMissingAssignee = task?.assignee && !members.some((member) => member.id === task.assignee?.id)
@@ -57,13 +64,14 @@ export function TaskForm({ organizationId, members, task }: TaskFormProps) {
 
   return (
     // key: each answer remounts the fields with the values sent (React resets a form after its action).
-    <form action={formAction} noValidate className="space-y-5" key={JSON.stringify(values)}>
+    <form ref={formRef} action={formAction} noValidate className="space-y-5" key={JSON.stringify(values)}>
       <FormMessage message={state.message} />
       <TextField name="title" label="Title" autoFocus autoComplete="off" defaultValue={values.title} error={state.errors?.title} />
 
       <Field data-invalid={Boolean(state.errors?.description)} controlId="task-description">
         <FieldLabel>Description</FieldLabel>
         <Textarea
+          ref={descriptionRef}
           name="description"
           rows={5}
           defaultValue={values.description}
@@ -71,6 +79,24 @@ export function TaskForm({ organizationId, members, task }: TaskFormProps) {
           aria-describedby={state.errors?.description ? 'task-description-error' : undefined}
         />
         {state.errors?.description && <FieldError id="task-description-error">{state.errors.description}</FieldError>}
+        {writingHelp && (
+          <TaskWritingHelp
+            organizationId={organizationId}
+            taskId={task?.id}
+            readDraft={() => {
+              const data = new FormData(formRef.current ?? undefined)
+              return { title: String(data.get('title') ?? ''), description: String(data.get('description') ?? '') }
+            }}
+            onAccept={(text) => {
+              const field = descriptionRef.current
+              if (field) {
+                field.value = text
+                // Continue in the field; the preview (and its Accept button) is gone.
+                field.focus()
+              }
+            }}
+          />
+        )}
       </Field>
 
       <div className="grid gap-5 sm:grid-cols-2">

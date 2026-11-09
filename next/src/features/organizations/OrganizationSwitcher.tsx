@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { Organization } from '@shared/types/api'
 import {
@@ -29,6 +30,7 @@ export function OrganizationSwitcher({ current, organizations }: OrganizationSwi
   const pathname = usePathname()
   // useTransition: isPending while the Server Action and the redirect it starts run.
   const [isPending, startTransition] = useTransition()
+  const queryClient = useQueryClient()
 
   function choose(organizationId: number) {
     if (organizationId === current?.id || isPending) {
@@ -36,6 +38,10 @@ export function OrganizationSwitcher({ current, organizations }: OrganizationSwi
     }
     startTransition(async () => {
       // It only returns on failure: success redirects.
+      // Org-scoped client data belongs to the organization being left: stop its
+      // requests and drop it first (the action redirects on success, so nothing runs after it).
+      await queryClient.cancelQueries({ queryKey: ['org'] })
+      queryClient.removeQueries({ queryKey: ['org'] })
       const result = await switchOrganization(organizationId, pathname)
       if (result) {
         toast.error('Could not switch organization', { description: result.message })

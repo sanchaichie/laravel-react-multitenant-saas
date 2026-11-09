@@ -38,7 +38,7 @@ export default async function EditTaskPage({ params }: PageProps<'/tasks/[id]/ed
       <PageHeader title="Edit task" description={task.title} />
       <Card className="p-5 sm:p-6">
         {/* key: a fresh form for each task (its fields start from that task). */}
-        <TaskForm key={task.id} organizationId={organization.id} members={members} task={task} />
+        <TaskForm key={task.id} organizationId={organization.id} members={members} task={task} writingHelp={task.can.write_with_ai} />
       </Card>
     </>
   )

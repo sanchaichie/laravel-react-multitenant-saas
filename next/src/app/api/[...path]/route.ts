@@ -17,6 +17,7 @@ const ALLOWED = [/^me$/, /^organizations(\/\d+)?$/, /^tasks(\/.*)?$/, /^members$
 
 // A request body is read whole before it's sent on: cap it (Laravel caps it too, but only after Next has read it).
 const MAX_BODY_BYTES = 1024 * 1024
+const BODY_DEADLINE_MS = 10_000
 
 // Request headers passed on (everything else, cookies included, stays here).
 const FORWARDED_REQUEST_HEADERS = ['accept', 'content-type', 'x-organization-id', 'user-agent']
@@ -101,6 +102,13 @@ async function forward(request: NextRequest, { params }: RouteContext<'/api/[...
     }
   }
 
+  // An event stream (AI chat, writing help) must reach the browser chunk by chunk:
+  // `no-transform` keeps next start's gzip from holding small chunks back, and
+  // X-Accel-Buffering (from Laravel) does the same for nginx in front.
+  if (responseHeaders.get('content-type')?.startsWith('text/event-stream')) {
+    responseHeaders.set('cache-control', 'private, no-store, no-transform')
+  }
+
   const response = new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders })
   // The token is gone on the server (logged out elsewhere, revoked): drop the cookie too.
   if (upstream.status === 401 && token) {
@@ -110,7 +118,7 @@ async function forward(request: NextRequest, { params }: RouteContext<'/api/[...
   return response
 }
 
-/** The body, or null past MAX_BODY_BYTES (counted as it streams in, whatever Content-Length said). */
+/** The body, or null past MAX_BODY_BYTES (counted as it streams in, whatever Content-Length said) or BODY_DEADLINE_MS. */
 async function readCapped(request: NextRequest): Promise<ArrayBuffer | undefined | null> {
   if (!request.body) {
     return undefined
@@ -118,8 +126,19 @@ async function readCapped(request: NextRequest): Promise<ArrayBuffer | undefined
   const chunks: Uint8Array[] = []
   let size = 0
   const reader = request.body.getReader()
+  // A body sent very slowly would hold this request open: give up after 10s.
+  const deadline = Date.now() + BODY_DEADLINE_MS
   for (;;) {
-    const { done, value } = await reader.read()
+    const remaining = deadline - Date.now()
+    const next = await Promise.race([
+      reader.read(),
+      new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), Math.max(remaining, 0))),
+    ])
+    if (next === 'timeout') {
+      await reader.cancel()
+      return null
+    }
+    const { done, value } = next
     if (done) {
       break
     }

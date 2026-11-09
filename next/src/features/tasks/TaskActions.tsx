@@ -9,18 +9,15 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { TrashBinIcon } from '@/icons'
+import { clientApiEvents } from '@/lib/clientApi'
 import { type ActionResult, deleteTask, setTaskStatus } from './actions'
 import { TASK_STATUSES, statusLabel } from './filters'
 
-/** Says why an action failed; when another tab switched organization, reloads for the new one. */
+/** Says why an action failed; when another tab switched organization, the shared handler reloads for the new one. */
 function useReportFailure() {
-  const router = useRouter()
-
   return (result: ActionResult, title: string) => {
     if (result.organizationChanged) {
-      toast.info('Your organization changed', { description: 'It was switched in another tab.' })
-      router.replace('/tasks')
-      router.refresh()
+      clientApiEvents.onOrganizationChanged()
       return
     }
     toast.error(title, { description: result.message })

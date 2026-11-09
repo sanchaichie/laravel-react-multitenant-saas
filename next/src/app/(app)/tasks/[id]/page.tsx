@@ -6,6 +6,7 @@ import { NoOrganization } from '@/components/NoOrganization'
 import { PageHeader } from '@/components/PageHeader'
 import { buttonVariants } from '@/components/ui/button'
 import { parseTaskId } from '@/features/tasks/filters'
+import { TaskChatSheet } from '@/features/taskChat/TaskChatSheet'
 import { DeleteTaskButton, StatusSelect } from '@/features/tasks/TaskActions'
 import { OverdueBadge, TaskPriorityBadge, TaskStatusBadge } from '@/features/tasks/TaskBadges'
 import { ArrowLeftIcon, PencilIcon } from '@/icons'
@@ -46,6 +47,10 @@ export default async function TaskPage({ params }: PageProps<'/tasks/[id]'>) {
         Tasks
       </Link>
       <PageHeader title={task.title}>
+        {/* A client component inside this Server Component: only the chat ships JavaScript. */}
+        {task.can.chat && !task.content_hidden && (
+          <TaskChatSheet task={task} organizationId={organization.id} verified={user.email_verified} />
+        )}
         {task.can.update && (
           <Link href={`/tasks/${task.id}/edit`} className={buttonVariants({ variant: 'outline' })}>
             <PencilIcon aria-hidden />

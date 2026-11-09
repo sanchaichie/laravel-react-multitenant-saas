@@ -172,13 +172,14 @@ The same product is built twice on the same Laravel API, so you can pick the fro
 | Data | TanStack Query calls the API from the browser | Pages fetch on the server; forms post to Server Actions |
 | Login token | Bearer token in `localStorage` | httpOnly cookie the browser's scripts can't read; a built-in `/api` proxy adds it to calls |
 | UI kit | shadcn/ui (Radix) | [TailAdmin](https://github.com/TailAdmin/free-nextjs-admin-dashboard) (Base UI), MIT |
-| Covers | Everything in the tour | Sign-up, log in (with 2FA), password reset, email verification, organization switching, a **Tasks overview** with charts, and Tasks (list, filters, create, edit, delete) |
+| Covers | Everything in the tour | Sign-up, log in (with 2FA), password reset, email verification, organization switching, a **Tasks overview** with charts, Tasks (list, filters, create, edit, delete), and **AI chat and writing help**, streamed word by word through its `/api` proxy |
 
 One setting chooses which one runs, and where the API's emails link to: `FRONTEND_URL` in `api/.env` (`http://localhost:5173` for React, `http://localhost:3100` for Next.js). The Next.js app is growing feature by feature; email links for pages it doesn't have yet (invitations, email change) say to open them in the React app.
 
 <p align="center">
   <img src="docs/screenshots/next-overview.png" alt="The Next.js app's Tasks overview: counts by status, overdue and assigned to me, with status and priority charts" width="860"><br>
-  <img src="docs/screenshots/next-tasks.png" alt="The Next.js app's task list with filters in TailAdmin's layout" width="860">
+  <img src="docs/screenshots/next-tasks.png" alt="The Next.js app's task list with filters in TailAdmin's layout" width="860"><br>
+  <img src="docs/screenshots/next-task-chat.png" alt="The Next.js app's Ask AI sheet on a task page: a question and the streamed answer" width="860">
 </p>
 
 ## 🔑 Who can do what

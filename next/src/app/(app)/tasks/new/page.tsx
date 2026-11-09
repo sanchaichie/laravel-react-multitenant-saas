@@ -29,7 +29,12 @@ export default async function NewTaskPage() {
     <>
       <PageHeader title="New task" description={`In ${organization.name}.`} />
       <Card className="p-5 sm:p-6">
-        <TaskForm organizationId={organization.id} members={members} />
+        <TaskForm
+          organizationId={organization.id}
+          members={members}
+          // The same rule the API applies to POST /api/tasks/writing-help.
+          writingHelp={organization.permissions.includes('ai.use') && user.email_verified}
+        />
       </Card>
     </>
   )
